@@ -54,7 +54,47 @@ function ExploreContent() {
     dbQuery = dbQuery.order('created_at', { ascending: false }).limit(30)
 
     const { data } = await dbQuery
-    setResults((data as PostWithAuthor[]) ?? [])
+    const posts = (data as PostWithAuthor[]) ?? []
+
+    if (posts.length === 0) {
+      setResults([])
+      setLoading(false)
+      return
+    }
+
+    const { data: { user } } = await supabase.auth.getUser()
+    const postIds = posts.map((p) => p.id)
+
+    const [likesRes, userLikesRes, commentsRes] = await Promise.all([
+      supabase.from('likes').select('post_id').in('post_id', postIds),
+      user
+        ? supabase.from('likes').select('post_id').in('post_id', postIds).eq('user_id', user.id)
+        : Promise.resolve({ data: [] }),
+      supabase.from('comments').select('post_id').in('post_id', postIds),
+    ])
+
+    const likesMap: Record<string, number> = {}
+    ;(likesRes.data ?? []).forEach((l: { post_id: string }) => {
+      likesMap[l.post_id] = (likesMap[l.post_id] ?? 0) + 1
+    })
+
+    const userLikedSet = new Set(
+      (userLikesRes.data ?? []).map((l: { post_id: string }) => l.post_id)
+    )
+
+    const commentsMap: Record<string, number> = {}
+    ;(commentsRes.data ?? []).forEach((c: { post_id: string }) => {
+      commentsMap[c.post_id] = (commentsMap[c.post_id] ?? 0) + 1
+    })
+
+    const enriched = posts.map((p) => ({
+      ...p,
+      likes_count: likesMap[p.id] ?? 0,
+      comments_count: commentsMap[p.id] ?? 0,
+      user_has_liked: userLikedSet.has(p.id),
+    }))
+
+    setResults(enriched)
     setLoading(false)
   }
 

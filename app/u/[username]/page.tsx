@@ -37,29 +37,43 @@ export default async function ProfilePage({ params }: Props) {
   const { data: { user } } = await supabase.auth.getUser()
   const isOwnProfile = user?.id === profile.id
 
-  const { data: postsData } = await sb
+  let postsQuery = sb
     .from('posts')
     .select('*, profiles(*)')
     .eq('author_id', profile.id)
     .order('created_at', { ascending: false })
 
+  if (!isOwnProfile) {
+    postsQuery = postsQuery.eq('status', 'published')
+  }
+
+  const { data: postsData } = await postsQuery
   const posts = (postsData ?? []) as PostWithAuthor[]
 
+  const postIds = posts.map((p) => p.id)
   const publishedPostIds = posts.filter((p) => p.status === 'published').map((p) => p.id)
 
-  const likesCountResult = publishedPostIds.length > 0
-    ? await sb.from('likes').select('post_id').in('post_id', publishedPostIds)
-    : { data: [] }
-
-  const totalLikes = (likesCountResult.data ?? []).length
-
-  const { count: competitionsEntered } = await sb
-    .from('competition_entries')
-    .select('*', { count: 'exact', head: true })
-    .in('post_id', publishedPostIds.length > 0 ? publishedPostIds : ['__none__'])
-
-  // Follow stats
-  const [followersResult, followingResult, userFollowResult] = await Promise.all([
+  const [
+    likesResult,
+    userLikesResult,
+    commentsResult,
+    competitionsEnteredResult,
+    followersResult,
+    followingResult,
+    userFollowResult,
+  ] = await Promise.all([
+    postIds.length > 0
+      ? sb.from('likes').select('post_id').in('post_id', postIds)
+      : Promise.resolve({ data: [] }),
+    user && postIds.length > 0
+      ? sb.from('likes').select('post_id').in('post_id', postIds).eq('user_id', user.id)
+      : Promise.resolve({ data: [] }),
+    postIds.length > 0
+      ? sb.from('comments').select('post_id').in('post_id', postIds)
+      : Promise.resolve({ data: [] }),
+    sb.from('competition_entries')
+      .select('*', { count: 'exact', head: true })
+      .in('post_id', publishedPostIds.length > 0 ? publishedPostIds : ['__none__']),
     sb.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', profile.id),
     sb.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', profile.id),
     user && !isOwnProfile
@@ -67,13 +81,33 @@ export default async function ProfilePage({ params }: Props) {
       : Promise.resolve({ data: null }),
   ])
 
+  const publishedSet = new Set(publishedPostIds)
+  const totalLikes = (likesResult.data ?? []).filter((l: { post_id: string }) => publishedSet.has(l.post_id)).length
+  const competitionsEntered = competitionsEnteredResult?.count ?? 0
+
   const followersCount = followersResult?.count ?? 0
   const followingCount = followingResult?.count ?? 0
   const isFollowing = !!userFollowResult?.data
 
+  const likesMap: Record<string, number> = {}
+  ;(likesResult.data ?? []).forEach((l: { post_id: string }) => {
+    likesMap[l.post_id] = (likesMap[l.post_id] ?? 0) + 1
+  })
+
+  const userLikedSet = new Set(
+    (userLikesResult.data ?? []).map((l: { post_id: string }) => l.post_id)
+  )
+
+  const commentsMap: Record<string, number> = {}
+  ;(commentsResult.data ?? []).forEach((c: { post_id: string }) => {
+    commentsMap[c.post_id] = (commentsMap[c.post_id] ?? 0) + 1
+  })
+
   const enrichedPosts: PostWithAuthor[] = posts.map((post) => ({
     ...post,
-    likes_count: (likesCountResult.data ?? []).filter((l: { post_id: string }) => l.post_id === post.id).length,
+    likes_count: likesMap[post.id] ?? 0,
+    comments_count: commentsMap[post.id] ?? 0,
+    user_has_liked: userLikedSet.has(post.id),
   }))
 
   return (

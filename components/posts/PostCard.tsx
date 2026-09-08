@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import type { PostWithAuthor } from '@/lib/supabase/types'
 import { cn, formatDate, truncateBody, POST_TYPE_LABELS, isRTL } from '@/lib/utils'
@@ -22,6 +22,10 @@ export default function PostCard({
   const isRtl = isRTL(post.language)
   const [showComments, setShowComments] = useState(false)
   const [commentsCount, setCommentsCount] = useState(post.comments_count ?? 0)
+
+  useEffect(() => {
+    setCommentsCount(post.comments_count ?? 0)
+  }, [post.comments_count])
 
   return (
     <article className="post-card animate-fade-in">

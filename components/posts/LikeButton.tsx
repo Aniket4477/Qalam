@@ -33,6 +33,14 @@ export default function LikeButton({
     })
   }, [supabase])
 
+  useEffect(() => {
+    setLiked(initialLiked)
+  }, [initialLiked])
+
+  useEffect(() => {
+    setCount(initialCount)
+  }, [initialCount])
+
   const handleToggle = useCallback(
     async (e?: React.MouseEvent) => {
       e?.stopPropagation()

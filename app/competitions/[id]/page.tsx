@@ -47,12 +47,15 @@ export default async function CompetitionDetailPage({ params }: Props) {
 
   const entryPostIds = entries.map((e) => e.post_id)
 
-  const [likesData, userLikesData] = await Promise.all([
+  const [likesData, userLikesData, commentsData] = await Promise.all([
     entryPostIds.length > 0
       ? sb.from('likes').select('post_id').in('post_id', entryPostIds)
       : Promise.resolve({ data: [] }),
     user && entryPostIds.length > 0
       ? sb.from('likes').select('post_id').in('post_id', entryPostIds).eq('user_id', user.id)
+      : Promise.resolve({ data: [] }),
+    entryPostIds.length > 0
+      ? sb.from('comments').select('post_id').in('post_id', entryPostIds)
       : Promise.resolve({ data: [] }),
   ])
 
@@ -61,6 +64,10 @@ export default async function CompetitionDetailPage({ params }: Props) {
     likesMap[l.post_id] = (likesMap[l.post_id] ?? 0) + 1
   })
   const userLikedSet = new Set((userLikesData.data ?? []).map((l: { post_id: string }) => l.post_id))
+  const commentsMap: Record<string, number> = {}
+  ;(commentsData.data ?? []).forEach((c: { post_id: string }) => {
+    commentsMap[c.post_id] = (commentsMap[c.post_id] ?? 0) + 1
+  })
 
   const enrichedEntries = entries.map((entry) => ({
     ...entry,
@@ -68,6 +75,7 @@ export default async function CompetitionDetailPage({ params }: Props) {
       ? {
           ...entry.posts,
           likes_count: likesMap[entry.post_id] ?? 0,
+          comments_count: commentsMap[entry.post_id] ?? 0,
           user_has_liked: userLikedSet.has(entry.post_id),
         }
       : null,
