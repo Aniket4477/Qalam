@@ -7,6 +7,37 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pg_trgm"; -- for full-text search
 
 -- ============================================================
+-- ENUM TYPES (Idempotent)
+-- ============================================================
+DO $$ BEGIN
+  CREATE TYPE post_type AS ENUM (
+    'poem', 'shayari', 'ghazal', 'haiku', 'free_verse', 'other'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE post_status AS ENUM ('draft', 'published');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE competition_status AS ENUM ('upcoming', 'open', 'voting', 'closed');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE notification_type AS ENUM (
+    'like', 'comment', 'message', 'competition_ended'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
+
+-- ============================================================
 -- PROFILES
 -- ============================================================
 CREATE TABLE IF NOT EXISTS profiles (
@@ -26,12 +57,6 @@ CREATE INDEX IF NOT EXISTS profiles_username_idx ON profiles(username);
 -- ============================================================
 -- POSTS
 -- ============================================================
-CREATE TYPE post_type AS ENUM (
-  'poem', 'shayari', 'ghazal', 'haiku', 'free_verse', 'other'
-);
-
-CREATE TYPE post_status AS ENUM ('draft', 'published');
-
 CREATE TABLE IF NOT EXISTS posts (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   author_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
@@ -64,6 +89,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS posts_updated_at ON posts;
 CREATE TRIGGER posts_updated_at
   BEFORE UPDATE ON posts
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
@@ -98,8 +124,6 @@ CREATE INDEX IF NOT EXISTS comments_post_idx ON comments(post_id, created_at);
 -- ============================================================
 -- COMPETITIONS
 -- ============================================================
-CREATE TYPE competition_status AS ENUM ('upcoming', 'open', 'voting', 'closed');
-
 CREATE TABLE IF NOT EXISTS competitions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   title TEXT NOT NULL,
@@ -133,12 +157,13 @@ CREATE TABLE IF NOT EXISTS conversations (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_one_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   user_two_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  -- Ensure only one conversation per pair (canonical order)
-  UNIQUE(
-    LEAST(user_one_id::TEXT, user_two_id::TEXT),
-    GREATEST(user_one_id::TEXT, user_two_id::TEXT)
-  )
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Ensure only one conversation per pair (canonical order via unique index)
+CREATE UNIQUE INDEX IF NOT EXISTS conversations_user_pair_idx ON conversations (
+  (LEAST(user_one_id, user_two_id)),
+  (GREATEST(user_one_id, user_two_id))
 );
 
 CREATE INDEX IF NOT EXISTS conversations_user_one_idx ON conversations(user_one_id);
@@ -161,10 +186,6 @@ CREATE INDEX IF NOT EXISTS messages_conversation_idx ON messages(conversation_id
 -- ============================================================
 -- NOTIFICATIONS
 -- ============================================================
-CREATE TYPE notification_type AS ENUM (
-  'like', 'comment', 'message', 'competition_ended'
-);
-
 CREATE TABLE IF NOT EXISTS notifications (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
@@ -190,63 +211,99 @@ ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
--- PROFILES
+-- PROFILES POLICIES
+DROP POLICY IF EXISTS "profiles_public_read" ON profiles;
 CREATE POLICY "profiles_public_read" ON profiles FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "profiles_owner_insert" ON profiles;
 CREATE POLICY "profiles_owner_insert" ON profiles FOR INSERT WITH CHECK (id = auth.uid());
+
+DROP POLICY IF EXISTS "profiles_owner_update" ON profiles;
 CREATE POLICY "profiles_owner_update" ON profiles FOR UPDATE USING (id = auth.uid());
 
--- POSTS
+-- POSTS POLICIES
+DROP POLICY IF EXISTS "posts_published_public_read" ON posts;
 CREATE POLICY "posts_published_public_read" ON posts
   FOR SELECT USING (status = 'published' OR author_id = auth.uid());
+
+DROP POLICY IF EXISTS "posts_owner_insert" ON posts;
 CREATE POLICY "posts_owner_insert" ON posts FOR INSERT WITH CHECK (author_id = auth.uid());
+
+DROP POLICY IF EXISTS "posts_owner_update" ON posts;
 CREATE POLICY "posts_owner_update" ON posts FOR UPDATE USING (author_id = auth.uid());
+
+DROP POLICY IF EXISTS "posts_owner_delete" ON posts;
 CREATE POLICY "posts_owner_delete" ON posts FOR DELETE USING (author_id = auth.uid());
 
--- LIKES
+-- LIKES POLICIES
+DROP POLICY IF EXISTS "likes_public_read" ON likes;
 CREATE POLICY "likes_public_read" ON likes FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "likes_authenticated_insert" ON likes;
 CREATE POLICY "likes_authenticated_insert" ON likes
   FOR INSERT WITH CHECK (user_id = auth.uid() AND auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "likes_owner_delete" ON likes;
 CREATE POLICY "likes_owner_delete" ON likes FOR DELETE USING (user_id = auth.uid());
 
--- COMMENTS
+-- COMMENTS POLICIES
+DROP POLICY IF EXISTS "comments_public_read" ON comments;
 CREATE POLICY "comments_public_read" ON comments FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "comments_authenticated_insert" ON comments;
 CREATE POLICY "comments_authenticated_insert" ON comments
   FOR INSERT WITH CHECK (author_id = auth.uid() AND auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "comments_owner_delete" ON comments;
 CREATE POLICY "comments_owner_delete" ON comments FOR DELETE USING (author_id = auth.uid());
 
--- COMPETITIONS
+-- COMPETITIONS POLICIES
+DROP POLICY IF EXISTS "competitions_public_read" ON competitions;
 CREATE POLICY "competitions_public_read" ON competitions FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "competitions_admin_insert" ON competitions;
 CREATE POLICY "competitions_admin_insert" ON competitions
   FOR INSERT WITH CHECK (
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = TRUE)
   );
+
+DROP POLICY IF EXISTS "competitions_admin_update" ON competitions;
 CREATE POLICY "competitions_admin_update" ON competitions
   FOR UPDATE USING (
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = TRUE)
   );
 
--- COMPETITION ENTRIES
+-- COMPETITION ENTRIES POLICIES
+DROP POLICY IF EXISTS "entries_public_read" ON competition_entries;
 CREATE POLICY "entries_public_read" ON competition_entries FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "entries_authenticated_insert" ON competition_entries;
 CREATE POLICY "entries_authenticated_insert" ON competition_entries
   FOR INSERT WITH CHECK (
     auth.role() = 'authenticated' AND
     EXISTS (SELECT 1 FROM posts WHERE id = post_id AND author_id = auth.uid())
   );
+
+DROP POLICY IF EXISTS "entries_owner_delete" ON competition_entries;
 CREATE POLICY "entries_owner_delete" ON competition_entries
   FOR DELETE USING (
     EXISTS (SELECT 1 FROM posts WHERE id = post_id AND author_id = auth.uid())
   );
 
--- CONVERSATIONS
+-- CONVERSATIONS POLICIES
+DROP POLICY IF EXISTS "conversations_participant_read" ON conversations;
 CREATE POLICY "conversations_participant_read" ON conversations
   FOR SELECT USING (user_one_id = auth.uid() OR user_two_id = auth.uid());
+
+DROP POLICY IF EXISTS "conversations_authenticated_insert" ON conversations;
 CREATE POLICY "conversations_authenticated_insert" ON conversations
   FOR INSERT WITH CHECK (
     (user_one_id = auth.uid() OR user_two_id = auth.uid()) AND
     auth.role() = 'authenticated'
   );
 
--- MESSAGES
+-- MESSAGES POLICIES
+DROP POLICY IF EXISTS "messages_participant_read" ON messages;
 CREATE POLICY "messages_participant_read" ON messages
   FOR SELECT USING (
     EXISTS (
@@ -255,6 +312,8 @@ CREATE POLICY "messages_participant_read" ON messages
       AND (user_one_id = auth.uid() OR user_two_id = auth.uid())
     )
   );
+
+DROP POLICY IF EXISTS "messages_sender_insert" ON messages;
 CREATE POLICY "messages_sender_insert" ON messages
   FOR INSERT WITH CHECK (
     sender_id = auth.uid() AND
@@ -264,6 +323,8 @@ CREATE POLICY "messages_sender_insert" ON messages
       AND (user_one_id = auth.uid() OR user_two_id = auth.uid())
     )
   );
+
+DROP POLICY IF EXISTS "messages_participant_update" ON messages;
 CREATE POLICY "messages_participant_update" ON messages
   FOR UPDATE USING (
     EXISTS (
@@ -273,9 +334,12 @@ CREATE POLICY "messages_participant_update" ON messages
     )
   );
 
--- NOTIFICATIONS
+-- NOTIFICATIONS POLICIES
+DROP POLICY IF EXISTS "notifications_owner_read" ON notifications;
 CREATE POLICY "notifications_owner_read" ON notifications
   FOR SELECT USING (user_id = auth.uid());
+
+DROP POLICY IF EXISTS "notifications_owner_update" ON notifications;
 CREATE POLICY "notifications_owner_update" ON notifications
   FOR UPDATE USING (user_id = auth.uid());
 
@@ -306,6 +370,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION handle_new_user();
@@ -332,6 +397,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+DROP TRIGGER IF EXISTS on_like_created ON likes;
 CREATE TRIGGER on_like_created
   AFTER INSERT ON likes
   FOR EACH ROW EXECUTE FUNCTION notify_on_like();
@@ -357,6 +423,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+DROP TRIGGER IF EXISTS on_comment_created ON comments;
 CREATE TRIGGER on_comment_created
   AFTER INSERT ON comments
   FOR EACH ROW EXECUTE FUNCTION notify_on_comment();
@@ -405,4 +472,3 @@ CREATE POLICY "covers_auth_update" ON storage.objects
 DROP POLICY IF EXISTS "covers_auth_delete" ON storage.objects;
 CREATE POLICY "covers_auth_delete" ON storage.objects
   FOR DELETE USING (bucket_id = 'covers' AND auth.role() = 'authenticated');
-
