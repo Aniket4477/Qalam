@@ -346,47 +346,89 @@ CREATE POLICY "notifications_owner_update" ON notifications
 -- ============================================================
 -- FUNCTION: Auto-create profile on new user sign-up
 -- ============================================================
-CREATE OR REPLACE FUNCTION handle_new_user()
-RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 DECLARE
   generated_username TEXT;
+  user_display_name TEXT;
+  user_avatar TEXT;
 BEGIN
-  -- Generate username from email prefix + random suffix if needed
-  generated_username := LOWER(SPLIT_PART(NEW.email, '@', 1));
+  -- Determine display name
+  user_display_name := COALESCE(
+    NULLIF(TRIM(NEW.raw_user_meta_data->>'full_name'), ''),
+    NULLIF(TRIM(NEW.raw_user_meta_data->>'name'), ''),
+    SPLIT_PART(NEW.email, '@', 1),
+    'User'
+  );
+
+  -- Determine avatar if provided (e.g. by Google OAuth)
+  user_avatar := COALESCE(
+    NEW.raw_user_meta_data->>'avatar_url',
+    NEW.raw_user_meta_data->>'picture',
+    NULL
+  );
+
+  -- Generate username from email or display name
+  generated_username := LOWER(
+    COALESCE(
+      NULLIF(SPLIT_PART(NEW.email, '@', 1), ''),
+      REGEXP_REPLACE(user_display_name, '[^a-zA-Z0-9_]', '', 'g'),
+      'user'
+    )
+  );
+
   -- Sanitize to alphanumeric + underscores
   generated_username := REGEXP_REPLACE(generated_username, '[^a-z0-9_]', '_', 'g');
+
+  IF generated_username IS NULL OR generated_username = '' THEN
+    generated_username := 'user_' || SUBSTRING(REPLACE(NEW.id::TEXT, '-', ''), 1, 8);
+  END IF;
+
   -- Ensure uniqueness
-  WHILE EXISTS (SELECT 1 FROM profiles WHERE username = generated_username) LOOP
+  WHILE EXISTS (SELECT 1 FROM public.profiles WHERE username = generated_username) LOOP
     generated_username := generated_username || '_' || FLOOR(RANDOM() * 1000)::TEXT;
   END LOOP;
 
-  INSERT INTO profiles (id, username, display_name)
+  INSERT INTO public.profiles (id, username, display_name, avatar_url)
   VALUES (
     NEW.id,
     generated_username,
-    COALESCE(NEW.raw_user_meta_data->>'full_name', SPLIT_PART(NEW.email, '@', 1))
-  );
+    user_display_name,
+    user_avatar
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    display_name = EXCLUDED.display_name,
+    avatar_url = COALESCE(public.profiles.avatar_url, EXCLUDED.avatar_url);
+
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- ============================================================
 -- FUNCTION: Create notification on like
 -- ============================================================
 CREATE OR REPLACE FUNCTION notify_on_like()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 DECLARE
   post_author UUID;
 BEGIN
-  SELECT author_id INTO post_author FROM posts WHERE id = NEW.post_id;
+  SELECT author_id INTO post_author FROM public.posts WHERE id = NEW.post_id;
   -- Don't notify if you liked your own post
   IF post_author != NEW.user_id THEN
-    INSERT INTO notifications (user_id, type, payload)
+    INSERT INTO public.notifications (user_id, type, payload)
     VALUES (
       post_author,
       'like',
@@ -395,7 +437,7 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 DROP TRIGGER IF EXISTS on_like_created ON likes;
 CREATE TRIGGER on_like_created
@@ -406,13 +448,17 @@ CREATE TRIGGER on_like_created
 -- FUNCTION: Create notification on comment
 -- ============================================================
 CREATE OR REPLACE FUNCTION notify_on_comment()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 DECLARE
   post_author UUID;
 BEGIN
-  SELECT author_id INTO post_author FROM posts WHERE id = NEW.post_id;
+  SELECT author_id INTO post_author FROM public.posts WHERE id = NEW.post_id;
   IF post_author != NEW.author_id THEN
-    INSERT INTO notifications (user_id, type, payload)
+    INSERT INTO public.notifications (user_id, type, payload)
     VALUES (
       post_author,
       'comment',
@@ -421,7 +467,7 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 DROP TRIGGER IF EXISTS on_comment_created ON comments;
 CREATE TRIGGER on_comment_created
