@@ -18,7 +18,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
   const redirectTo = searchParams.get('redirectTo') ?? '/'
   const supabase = createClient()
 
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(searchParams.get('email') ?? '')
   const [password, setPassword] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -33,7 +33,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
     setError(null)
 
     if (mode === 'signup') {
-      const { error: signUpError } = await supabase.auth.signUp({
+      const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -41,8 +41,28 @@ export default function AuthForm({ mode }: AuthFormProps) {
           emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       })
+
       if (signUpError) {
-        setError(signUpError.message)
+        if (
+          signUpError.message.toLowerCase().includes('already registered') ||
+          signUpError.message.toLowerCase().includes('already in use')
+        ) {
+          setError('An account with this email already exists. Please sign in instead.')
+        } else {
+          setError(signUpError.message)
+        }
+      } else if (
+        data?.user &&
+        Array.isArray(data.user.identities) &&
+        data.user.identities.length === 0
+      ) {
+        // Supabase returns an empty identities array if user already exists (enumeration protection)
+        setError('An account with this email already exists. Please sign in instead.')
+      } else if (data?.session) {
+        // If email confirmation is disabled, user is immediately authenticated
+        router.push(redirectTo)
+        router.refresh()
+        return
       } else {
         setSuccessMessage('Check your email to confirm your account, then sign in.')
       }
@@ -181,8 +201,16 @@ export default function AuthForm({ mode }: AuthFormProps) {
             </div>
 
             {error && (
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2 text-sm text-red-600 dark:text-red-400">
-                {error}
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2.5 text-sm text-red-600 dark:text-red-400">
+                <p>{error}</p>
+                {error.includes('already exists') && (
+                  <Link
+                    href={`/login?email=${encodeURIComponent(email)}`}
+                    className="inline-flex items-center gap-1 mt-1.5 font-semibold text-xs text-[hsl(var(--primary))] hover:underline"
+                  >
+                    Sign in with this email →
+                  </Link>
+                )}
               </div>
             )}
 
