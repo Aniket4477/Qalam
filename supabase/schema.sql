@@ -518,3 +518,32 @@ CREATE POLICY "covers_auth_update" ON storage.objects
 DROP POLICY IF EXISTS "covers_auth_delete" ON storage.objects;
 CREATE POLICY "covers_auth_delete" ON storage.objects
   FOR DELETE USING (bucket_id = 'covers' AND auth.role() = 'authenticated');
+
+-- ============================================================
+-- FOLLOWS
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.follows (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  follower_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  following_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(follower_id, following_id),
+  CHECK (follower_id != following_id)
+);
+
+CREATE INDEX IF NOT EXISTS follows_follower_idx ON public.follows(follower_id);
+CREATE INDEX IF NOT EXISTS follows_following_idx ON public.follows(following_id);
+
+ALTER TABLE public.follows ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "follows_public_read" ON public.follows;
+CREATE POLICY "follows_public_read" ON public.follows FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "follows_auth_insert" ON public.follows;
+CREATE POLICY "follows_auth_insert" ON public.follows
+  FOR INSERT WITH CHECK (follower_id = auth.uid() AND auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "follows_owner_delete" ON public.follows;
+CREATE POLICY "follows_owner_delete" ON public.follows
+  FOR DELETE USING (follower_id = auth.uid());
+

@@ -120,6 +120,13 @@ export interface Notification {
   created_at: string
 }
 
+export interface Follow {
+  id: string
+  follower_id: string
+  following_id: string
+  created_at: string
+}
+
 // Database helper type for Supabase query builder
 export type Database = {
   public: {
@@ -127,12 +134,12 @@ export type Database = {
       profiles: {
         Row: Profile
         Insert: Omit<Profile, 'created_at'> & { created_at?: string }
-        Update: Partial<Omit<Profile, 'id'>>
+        Update: Partial<Omit<Profile, 'id' | 'created_at'>>
       }
       posts: {
         Row: Post
         Insert: Omit<Post, 'id' | 'created_at' | 'updated_at'> & { id?: string; created_at?: string; updated_at?: string }
-        Update: Partial<Omit<Post, 'id' | 'author_id'>>
+        Update: Partial<Omit<Post, 'id' | 'author_id' | 'created_at'>>
       }
       likes: {
         Row: Like
@@ -168,6 +175,11 @@ export type Database = {
         Row: Notification
         Insert: Omit<Notification, 'id' | 'created_at' | 'read_at'> & { id?: string; created_at?: string; read_at?: string | null }
         Update: Partial<Pick<Notification, 'read_at'>>
+      }
+      follows: {
+        Row: Follow
+        Insert: Omit<Follow, 'id' | 'created_at'> & { id?: string; created_at?: string }
+        Update: never
       }
     }
   }

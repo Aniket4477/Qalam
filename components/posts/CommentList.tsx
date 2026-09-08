@@ -10,9 +10,16 @@ import Link from 'next/link'
 interface CommentListProps {
   postId: string
   initialComments?: (Comment & { profiles: Profile })[]
+  onCommentAdded?: () => void
+  onCommentDeleted?: () => void
 }
 
-export default function CommentList({ postId, initialComments = [] }: CommentListProps) {
+export default function CommentList({
+  postId,
+  initialComments = [],
+  onCommentAdded,
+  onCommentDeleted,
+}: CommentListProps) {
   const [comments, setComments] = useState<(Comment & { profiles: Profile })[]>(initialComments)
   const [newComment, setNewComment] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -27,6 +34,17 @@ export default function CommentList({ postId, initialComments = [] }: CommentLis
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) setCurrentUser({ id: user.id })
     })
+
+    // Fetch comments if none passed initially
+    if (initialComments.length === 0) {
+      sb.from('comments')
+        .select('*, profiles(*)')
+        .eq('post_id', postId)
+        .order('created_at', { ascending: true })
+        .then(({ data }: { data: (Comment & { profiles: Profile })[] | null }) => {
+          if (data) setComments(data)
+        })
+    }
 
     const channel = supabase
       .channel(`comments:${postId}`)
@@ -49,7 +67,7 @@ export default function CommentList({ postId, initialComments = [] }: CommentLis
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [postId, supabase, sb])
+  }, [postId, supabase, sb, initialComments.length])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -78,6 +96,7 @@ export default function CommentList({ postId, initialComments = [] }: CommentLis
         if (prev.find((c) => c.id === data.id)) return prev
         return [...prev, data as Comment & { profiles: Profile }]
       })
+      onCommentAdded?.()
     }
     setSubmitting(false)
   }
@@ -85,6 +104,7 @@ export default function CommentList({ postId, initialComments = [] }: CommentLis
   const handleDelete = async (commentId: string) => {
     setComments((prev) => prev.filter((c) => c.id !== commentId))
     await sb.from('comments').delete().eq('id', commentId)
+    onCommentDeleted?.()
   }
 
   return (

@@ -3,6 +3,7 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import PostCard from '@/components/posts/PostCard'
+import ProfileFollowStats from '@/components/profile/ProfileFollowStats'
 import type { PostWithAuthor, Profile } from '@/lib/supabase/types'
 import { formatDate } from '@/lib/utils'
 import { Calendar, Award, Heart, BookOpen, MessageSquarePlus } from 'lucide-react'
@@ -56,6 +57,19 @@ export default async function ProfilePage({ params }: Props) {
     .from('competition_entries')
     .select('*', { count: 'exact', head: true })
     .in('post_id', publishedPostIds.length > 0 ? publishedPostIds : ['__none__'])
+
+  // Follow stats
+  const [followersResult, followingResult, userFollowResult] = await Promise.all([
+    sb.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', profile.id),
+    sb.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', profile.id),
+    user && !isOwnProfile
+      ? sb.from('follows').select('id').eq('follower_id', user.id).eq('following_id', profile.id).single()
+      : Promise.resolve({ data: null }),
+  ])
+
+  const followersCount = followersResult?.count ?? 0
+  const followingCount = followingResult?.count ?? 0
+  const isFollowing = !!userFollowResult?.data
 
   const enrichedPosts: PostWithAuthor[] = posts.map((post) => ({
     ...post,
@@ -131,6 +145,14 @@ export default async function ProfilePage({ params }: Props) {
             <span>{competitionsEntered ?? 0} competitions entered</span>
           </div>
         </div>
+
+        <ProfileFollowStats
+          targetUserId={profile.id}
+          isOwnProfile={isOwnProfile}
+          initialFollowersCount={followersCount}
+          initialFollowingCount={followingCount}
+          initialIsFollowing={isFollowing}
+        />
       </div>
 
       <div className="mt-6">

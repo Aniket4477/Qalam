@@ -1,7 +1,12 @@
+'use client'
+
+import { useState } from 'react'
 import Link from 'next/link'
 import type { PostWithAuthor } from '@/lib/supabase/types'
 import { cn, formatDate, truncateBody, POST_TYPE_LABELS, isRTL } from '@/lib/utils'
-import { Heart, MessageCircle, Share2, BookOpen } from 'lucide-react'
+import { MessageCircle, BookOpen } from 'lucide-react'
+import LikeButton from './LikeButton'
+import CommentList from './CommentList'
 
 interface PostCardProps {
   post: PostWithAuthor
@@ -15,6 +20,8 @@ export default function PostCard({
   variant = 'default',
 }: PostCardProps) {
   const isRtl = isRTL(post.language)
+  const [showComments, setShowComments] = useState(false)
+  const [commentsCount, setCommentsCount] = useState(post.comments_count ?? 0)
 
   return (
     <article className="post-card animate-fade-in">
@@ -118,26 +125,53 @@ export default function PostCard({
         </span>
 
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 text-[hsl(var(--muted-foreground))]">
-            <Heart
-              size={15}
-              className={cn(post.user_has_liked && 'fill-[hsl(var(--primary))] text-[hsl(var(--primary))]')}
-            />
-            <span className="text-xs">{post.likes_count ?? 0}</span>
-          </div>
-          <div className="flex items-center gap-1 text-[hsl(var(--muted-foreground))]">
+          <LikeButton
+            postId={post.id}
+            initialCount={post.likes_count ?? 0}
+            initialLiked={post.user_has_liked ?? false}
+            variant="inline"
+          />
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              e.preventDefault()
+              setShowComments(!showComments)
+            }}
+            className={cn(
+              'flex items-center gap-1 text-xs transition-colors py-0.5 px-1 rounded hover:bg-[hsl(var(--accent))]',
+              showComments
+                ? 'text-[hsl(var(--primary))] font-medium'
+                : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
+            )}
+            aria-label="Toggle comments"
+          >
             <MessageCircle size={15} />
-            <span className="text-xs">{post.comments_count ?? 0}</span>
-          </div>
+            <span className="tabular-nums">{commentsCount}</span>
+          </button>
           <Link
             href={`/post/${post.id}`}
-            className="flex items-center gap-1 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
+            className="flex items-center gap-1 text-xs text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors py-0.5 px-1 rounded hover:bg-[hsl(var(--accent))]"
           >
             <BookOpen size={15} />
-            <span className="text-xs">Read</span>
+            <span>Read</span>
           </Link>
         </div>
       </div>
+
+      {/* Expandable comments section */}
+      {showComments && (
+        <div
+          className="mt-4 pt-4 border-t border-[hsl(var(--border))] animate-fade-in"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <CommentList
+            postId={post.id}
+            onCommentAdded={() => setCommentsCount((c) => c + 1)}
+            onCommentDeleted={() => setCommentsCount((c) => Math.max(0, c - 1))}
+          />
+        </div>
+      )}
     </article>
   )
 }
