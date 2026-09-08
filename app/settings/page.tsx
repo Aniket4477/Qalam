@@ -1,0 +1,269 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import type { Profile } from '@/lib/supabase/types'
+import { Loader2, Camera, Save } from 'lucide-react'
+
+export default function SettingsPage() {
+  const router = useRouter()
+  const supabase = createClient()
+
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [displayName, setDisplayName] = useState('')
+  const [username, setUsername] = useState('')
+  const [bio, setBio] = useState('')
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
+  const [coverFile, setCoverFile] = useState<File | null>(null)
+  const [coverPreview, setCoverPreview] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.push('/login')
+        return
+      }
+      const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+      if (data) {
+        const p = data as unknown as Profile
+        setProfile(p)
+        setDisplayName(p.display_name)
+        setUsername(p.username)
+        setBio(p.bio ?? '')
+      }
+      setLoading(false)
+    }
+    loadProfile()
+  }, [router, supabase])
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setAvatarFile(file)
+      setAvatarPreview(URL.createObjectURL(file))
+    }
+  }
+
+  const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setCoverFile(file)
+      setCoverPreview(URL.createObjectURL(file))
+    }
+  }
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!profile) return
+    setSaving(true)
+    setError(null)
+    setSuccess(false)
+
+    if (!displayName.trim()) {
+      setError('Display name is required.')
+      setSaving(false)
+      return
+    }
+    if (!username.trim() || !/^[a-z0-9_]{3,30}$/.test(username)) {
+      setError('Username must be 3–30 characters, lowercase letters, numbers, and underscores only.')
+      setSaving(false)
+      return
+    }
+
+    let avatarUrl = profile.avatar_url
+    let coverUrl = profile.cover_url
+
+    if (avatarFile) {
+      const ext = avatarFile.name.split('.').pop()
+      const path = `${profile.id}/avatar.${ext}`
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(path, avatarFile, { upsert: true })
+      if (uploadError) {
+        setError('Failed to upload avatar: ' + uploadError.message)
+        setSaving(false)
+        return
+      }
+      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path)
+      avatarUrl = urlData.publicUrl
+    }
+
+    if (coverFile) {
+      const ext = coverFile.name.split('.').pop()
+      const path = `${profile.id}/cover.${ext}`
+      const { error: uploadError } = await supabase.storage
+        .from('covers')
+        .upload(path, coverFile, { upsert: true })
+      if (uploadError) {
+        setError('Failed to upload cover: ' + uploadError.message)
+        setSaving(false)
+        return
+      }
+      const { data: urlData } = supabase.storage.from('covers').getPublicUrl(path)
+      coverUrl = urlData.publicUrl
+    }
+
+    const updateData = {
+      display_name: displayName.trim(),
+      username: username.trim(),
+      bio: bio.trim() || null,
+      avatar_url: avatarUrl,
+      cover_url: coverUrl,
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: updateError } = await (supabase.from('profiles') as any)
+      .update(updateData)
+      .eq('id', profile.id)
+
+    if (updateError) {
+      setError((updateError as Error).message)
+    } else {
+      setSuccess(true)
+      setTimeout(() => setSuccess(false), 3000)
+      router.refresh()
+    }
+    setSaving(false)
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 size={32} className="animate-spin text-[hsl(var(--muted-foreground))]" />
+      </div>
+    )
+  }
+
+  if (!profile) return null
+
+  return (
+    <div className="max-w-xl mx-auto px-4 py-10 animate-fade-in">
+      <h1 className="text-2xl font-bold mb-8" style={{ fontFamily: 'Lora, Georgia, serif' }}>
+        Settings
+      </h1>
+
+      <form onSubmit={handleSave} className="space-y-6">
+        {/* Avatar */}
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            {(avatarPreview ?? profile.avatar_url) ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={avatarPreview ?? profile.avatar_url!}
+                alt="Avatar"
+                className="w-20 h-20 rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-20 h-20 rounded-full bg-[hsl(var(--primary)/0.15)] flex items-center justify-center text-xl font-bold text-[hsl(var(--primary))]">
+                {displayName.slice(0, 2).toUpperCase() || '?'}
+              </div>
+            )}
+            <label
+              htmlFor="avatarInput"
+              className="absolute bottom-0 right-0 w-7 h-7 bg-[hsl(var(--primary))] rounded-full flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity"
+            >
+              <Camera size={13} className="text-white" />
+            </label>
+            <input id="avatarInput" type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+          </div>
+          <div>
+            <p className="text-sm font-medium">Profile photo</p>
+            <p className="text-xs text-[hsl(var(--muted-foreground))]">JPG, PNG or WebP, max 5MB</p>
+          </div>
+        </div>
+
+        {/* Cover */}
+        <div>
+          <label className="block text-sm font-medium mb-2">Cover image</label>
+          <div className="relative h-28 rounded-lg overflow-hidden bg-gradient-to-br from-[hsl(var(--accent))] to-[hsl(var(--primary)/0.2)]">
+            {(coverPreview ?? profile.cover_url) && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={coverPreview ?? profile.cover_url!} alt="Cover" className="w-full h-full object-cover" />
+            )}
+            <label htmlFor="coverInput" className="absolute inset-0 flex items-center justify-center cursor-pointer">
+              <div className="bg-black/30 backdrop-blur-sm text-white text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5">
+                <Camera size={13} /> Change cover
+              </div>
+            </label>
+            <input id="coverInput" type="file" accept="image/*" className="hidden" onChange={handleCoverChange} />
+          </div>
+        </div>
+
+        <div>
+          <label htmlFor="displayName" className="block text-sm font-medium mb-1.5">Display name</label>
+          <input
+            id="displayName"
+            type="text"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            required
+            maxLength={64}
+            className="w-full px-3 py-2.5 bg-[hsl(var(--input)/0.5)] border border-[hsl(var(--border))] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="usernameInput" className="block text-sm font-medium mb-1.5">Username</label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[hsl(var(--muted-foreground))]">@</span>
+            <input
+              id="usernameInput"
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value.toLowerCase())}
+              required
+              minLength={3}
+              maxLength={30}
+              pattern="^[a-z0-9_]+$"
+              className="w-full pl-7 pr-3 py-2.5 bg-[hsl(var(--input)/0.5)] border border-[hsl(var(--border))] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
+            />
+          </div>
+          <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
+            Lowercase letters, numbers, and underscores. 3–30 characters.
+          </p>
+        </div>
+
+        <div>
+          <label htmlFor="bio" className="block text-sm font-medium mb-1.5">Bio</label>
+          <textarea
+            id="bio"
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+            rows={3}
+            maxLength={280}
+            placeholder="A few words about yourself or your writing…"
+            className="w-full px-3 py-2.5 bg-[hsl(var(--input)/0.5)] border border-[hsl(var(--border))] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))] resize-none placeholder:text-[hsl(var(--muted-foreground))]"
+          />
+          <p className="text-xs text-[hsl(var(--muted-foreground))] text-right mt-0.5">{bio.length}/280</p>
+        </div>
+
+        {error && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2 text-sm text-red-600 dark:text-red-400">
+            {error}
+          </div>
+        )}
+        {success && (
+          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg px-3 py-2 text-sm text-green-700 dark:text-green-300">
+            Profile saved successfully ✓
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={saving}
+          className="flex items-center gap-1.5 px-5 py-2.5 bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-60"
+        >
+          {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+          {saving ? 'Saving…' : 'Save changes'}
+        </button>
+      </form>
+    </div>
+  )
+}

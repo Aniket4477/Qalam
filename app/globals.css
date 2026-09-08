@@ -1,0 +1,266 @@
+@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+/* ============================================================
+   QALAM DESIGN TOKENS
+   ============================================================ */
+:root {
+  /* Warm paper palette */
+  --background: 40 30% 97%;        /* warm off-white */
+  --foreground: 30 15% 12%;        /* deep warm black */
+
+  --card: 38 28% 96%;
+  --card-foreground: 30 15% 12%;
+
+  --popover: 38 28% 97%;
+  --popover-foreground: 30 15% 12%;
+
+  --primary: 25 55% 38%;           /* warm terracotta brown */
+  --primary-foreground: 40 30% 97%;
+
+  --secondary: 40 25% 90%;
+  --secondary-foreground: 30 15% 20%;
+
+  --muted: 40 20% 92%;
+  --muted-foreground: 30 10% 48%;
+
+  --accent: 25 45% 88%;
+  --accent-foreground: 25 55% 30%;
+
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 98%;
+
+  --border: 38 18% 85%;
+  --input: 38 18% 85%;
+  --ring: 25 55% 38%;
+
+  --radius: 0.5rem;
+
+  /* Typography */
+  --font-serif: 'Lora', Georgia, serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
+}
+
+.dark {
+  --background: 30 12% 10%;        /* warm dark */
+  --foreground: 40 20% 92%;
+
+  --card: 30 10% 13%;
+  --card-foreground: 40 20% 92%;
+
+  --popover: 30 10% 13%;
+  --popover-foreground: 40 20% 92%;
+
+  --primary: 28 50% 55%;           /* softer terracotta in dark */
+  --primary-foreground: 30 12% 10%;
+
+  --secondary: 30 8% 18%;
+  --secondary-foreground: 40 15% 80%;
+
+  --muted: 30 8% 18%;
+  --muted-foreground: 30 8% 56%;
+
+  --accent: 28 30% 22%;
+  --accent-foreground: 28 50% 68%;
+
+  --destructive: 0 62% 44%;
+  --destructive-foreground: 0 0% 98%;
+
+  --border: 30 8% 22%;
+  --input: 30 8% 22%;
+  --ring: 28 50% 55%;
+}
+
+/* ============================================================
+   BASE STYLES
+   ============================================================ */
+* {
+  box-sizing: border-box;
+  border-color: hsl(var(--border));
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
+}
+
+/* ============================================================
+   PROSE / POEM BODY
+   ============================================================ */
+.prose-poem {
+  font-family: var(--font-serif);
+  font-size: 1.125rem;
+  line-height: 1.9;
+  white-space: pre-wrap;        /* CRITICAL: preserve poetry line breaks */
+  word-wrap: break-word;
+  color: hsl(var(--foreground));
+}
+
+.prose-poem-lg {
+  font-size: 1.25rem;
+  line-height: 2;
+}
+
+/* ============================================================
+   CUSTOM SCROLLBAR
+   ============================================================ */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
+}
+
+/* ============================================================
+   ANIMATIONS
+   ============================================================ */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+  from { transform: translateX(-8px); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes heartPop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.35); }
+  70%  { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-slide-in {
+  animation: slideIn 0.25s ease-out forwards;
+}
+
+.animate-heart-pop {
+  animation: heartPop 0.35s ease-out;
+}
+
+/* ============================================================
+   SKELETON LOADING
+   ============================================================ */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--muted)) 25%,
+    hsl(var(--secondary)) 50%,
+    hsl(var(--muted)) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius);
+}
+
+/* ============================================================
+   FOCUS VISIBLE (accessibility)
+   ============================================================ */
+:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+/* ============================================================
+   LINK STYLES
+   ============================================================ */
+.link-hover {
+  transition: color 0.15s ease;
+}
+.link-hover:hover {
+  color: hsl(var(--primary));
+}
+
+/* ============================================================
+   CARD HOVER
+   ============================================================ */
+.card-hover {
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -4px hsl(var(--foreground) / 0.08);
+}
+
+/* ============================================================
+   POST CARD
+   ============================================================ */
+.post-card {
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.post-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px -4px hsl(var(--foreground) / 0.1);
+  border-color: hsl(var(--primary) / 0.4);
+}
+
+/* ============================================================
+   COMPETITION BADGE
+   ============================================================ */
+.badge-upcoming { background: hsl(220 50% 60% / 0.15); color: hsl(220 60% 40%); }
+.badge-open     { background: hsl(140 50% 40% / 0.15); color: hsl(140 60% 30%); }
+.badge-voting   { background: hsl(28 70% 50% / 0.15);  color: hsl(28 80% 35%); }
+.badge-closed   { background: hsl(0 0% 50% / 0.1);     color: hsl(0 0% 40%); }
+
+.dark .badge-upcoming { background: hsl(220 50% 60% / 0.2); color: hsl(220 60% 70%); }
+.dark .badge-open     { background: hsl(140 50% 40% / 0.2); color: hsl(140 50% 65%); }
+.dark .badge-voting   { background: hsl(28 70% 50% / 0.2);  color: hsl(28 70% 68%); }
+.dark .badge-closed   { background: hsl(0 0% 50% / 0.15);   color: hsl(0 0% 65%); }
+
+/* ============================================================
+   NAV
+   ============================================================ */
+.nav-item {
+  color: hsl(var(--muted-foreground));
+  transition: color 0.15s ease;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+.nav-item:hover,
+.nav-item[aria-current="page"] {
+  color: hsl(var(--foreground));
+}
+
+/* ============================================================
+   TEXTAREA — poetry editor
+   ============================================================ */
+.poetry-textarea {
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  line-height: 1.85;
+  resize: vertical;
+  min-height: 240px;
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: auto;
+}
