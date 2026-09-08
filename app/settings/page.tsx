@@ -205,6 +205,7 @@ export default function SettingsPage() {
             onChange={(e) => setDisplayName(e.target.value)}
             required
             maxLength={64}
+            suppressHydrationWarning
             className="w-full px-3 py-2.5 bg-[hsl(var(--input)/0.5)] border border-[hsl(var(--border))] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
           />
         </div>
@@ -222,6 +223,7 @@ export default function SettingsPage() {
               minLength={3}
               maxLength={30}
               pattern="^[a-z0-9_]+$"
+              suppressHydrationWarning
               className="w-full pl-7 pr-3 py-2.5 bg-[hsl(var(--input)/0.5)] border border-[hsl(var(--border))] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
             />
           </div>

@@ -107,7 +107,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
         </div>
       ) : (
         <>
-          <form onSubmit={handleEmailAuth} className="space-y-4">
+          <form onSubmit={handleEmailAuth} className="space-y-4" suppressHydrationWarning>
             {!isLogin && (
               <div>
                 <label htmlFor="displayName" className="block text-sm font-medium mb-1.5">
@@ -119,6 +119,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   required
+                  suppressHydrationWarning
                   placeholder="Your name or pen name"
                   className="w-full px-3 py-2.5 bg-[hsl(var(--input)/0.5)] border border-[hsl(var(--border))] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))] placeholder:text-[hsl(var(--muted-foreground))] transition-colors"
                 />
@@ -135,6 +136,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                suppressHydrationWarning
                 placeholder="you@example.com"
                 className="w-full px-3 py-2.5 bg-[hsl(var(--input)/0.5)] border border-[hsl(var(--border))] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))] placeholder:text-[hsl(var(--muted-foreground))] transition-colors"
               />
@@ -162,6 +164,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={6}
+                  suppressHydrationWarning
                   placeholder={isLogin ? '••••••••' : 'At least 6 characters'}
                   className="w-full px-3 py-2.5 pr-10 bg-[hsl(var(--input)/0.5)] border border-[hsl(var(--border))] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))] placeholder:text-[hsl(var(--muted-foreground))] transition-colors"
                 />
@@ -170,6 +173,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  suppressHydrationWarning
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
@@ -185,6 +189,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
             <button
               type="submit"
               disabled={loading}
+              suppressHydrationWarning
               className="w-full py-2.5 bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-lg font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {loading && <Loader2 size={16} className="animate-spin" />}
@@ -206,6 +211,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
           <button
             onClick={handleGoogle}
             disabled={googleLoading}
+            suppressHydrationWarning
             className="w-full py-2.5 border border-[hsl(var(--border))] rounded-lg text-sm font-medium hover:bg-[hsl(var(--accent))] transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {googleLoading ? (
