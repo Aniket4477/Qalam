@@ -75,7 +75,7 @@ export default function Navbar() {
     await supabase.auth.signOut()
     setProfile(null)
     setUserMenuOpen(false)
-    router.push('/')
+    router.push('/login')
     router.refresh()
   }
 
@@ -264,14 +264,56 @@ export default function Navbar() {
               {link.label}
             </Link>
           ))}
-          {profile && (
-            <Link
-              href="/write"
-              onClick={() => setMobileOpen(false)}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-[hsl(var(--primary))]"
-            >
-              <PenLine size={15} /> Write
-            </Link>
+          {profile ? (
+            <>
+              <Link
+                href="/write"
+                onClick={() => setMobileOpen(false)}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-[hsl(var(--primary))]"
+              >
+                <PenLine size={15} /> Write
+              </Link>
+              <Link
+                href={`/u/${profile.username}`}
+                onClick={() => setMobileOpen(false)}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))] rounded-md"
+              >
+                <User size={15} /> Profile
+              </Link>
+              <Link
+                href="/settings"
+                onClick={() => setMobileOpen(false)}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))] rounded-md"
+              >
+                <Settings size={15} /> Settings
+              </Link>
+              <button
+                onClick={() => {
+                  setMobileOpen(false)
+                  handleSignOut()
+                }}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-[hsl(var(--destructive))] hover:bg-[hsl(var(--accent))] rounded-md text-left w-full"
+              >
+                <LogOut size={15} /> Sign out
+              </button>
+            </>
+          ) : (
+            <div className="pt-2 mt-1 border-t border-[hsl(var(--border))] flex flex-col gap-1">
+              <Link
+                href="/login"
+                onClick={() => setMobileOpen(false)}
+                className="px-3 py-2 rounded-md text-sm font-medium text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))]"
+              >
+                Sign in
+              </Link>
+              <Link
+                href="/signup"
+                onClick={() => setMobileOpen(false)}
+                className="px-3 py-2 rounded-md text-sm font-medium bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]"
+              >
+                Join
+              </Link>
+            </div>
           )}
         </div>
       )}
