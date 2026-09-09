@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { formatDate, cn } from '@/lib/utils'
-import { MessageCircle } from 'lucide-react'
+import { MessageCircle, SquarePen } from 'lucide-react'
 import type { Profile } from '@/lib/supabase/types'
 
 interface Conversation {
@@ -60,16 +60,23 @@ export default function MessagesClient({
         >
           No messages yet
         </h1>
-        <p className="text-sm text-[hsl(var(--muted-foreground))]">
-          Visit a poet&apos;s profile and click &quot;Message&quot; to start a conversation.
+        <p className="text-sm text-[hsl(var(--muted-foreground))] mb-5">
+          Search a fellow poet by @username to start a conversation.
         </p>
+        <Link
+          href="/messages/new"
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-xl text-sm font-medium hover:opacity-90 transition-opacity shadow-sm"
+        >
+          <SquarePen size={16} />
+          <span>Start a conversation</span>
+        </Link>
       </div>
     )
   }
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 animate-fade-in">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
         <div className="flex items-center gap-2.5">
           <h1
             className="text-2xl font-bold"
@@ -84,32 +91,43 @@ export default function MessagesClient({
           )}
         </div>
 
-        {totalUnreadConversations > 0 && (
-          <div className="flex gap-1 p-1 bg-[hsl(var(--muted)/0.6)] rounded-lg text-xs font-medium">
-            <button
-              onClick={() => setFilter('all')}
-              className={cn(
-                'px-2.5 py-1 rounded-md transition-colors',
-                filter === 'all'
-                  ? 'bg-[hsl(var(--background))] text-[hsl(var(--foreground))] shadow-xs font-semibold'
-                  : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
-              )}
-            >
-              All ({conversations.length})
-            </button>
-            <button
-              onClick={() => setFilter('unread')}
-              className={cn(
-                'px-2.5 py-1 rounded-md transition-colors',
-                filter === 'unread'
-                  ? 'bg-[hsl(var(--background))] text-[hsl(var(--foreground))] shadow-xs font-semibold'
-                  : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
-              )}
-            >
-              Unread ({totalUnreadConversations})
-            </button>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          {totalUnreadConversations > 0 && (
+            <div className="flex gap-1 p-1 bg-[hsl(var(--muted)/0.6)] rounded-lg text-xs font-medium">
+              <button
+                onClick={() => setFilter('all')}
+                className={cn(
+                  'px-2.5 py-1 rounded-md transition-colors',
+                  filter === 'all'
+                    ? 'bg-[hsl(var(--background))] text-[hsl(var(--foreground))] shadow-xs font-semibold'
+                    : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
+                )}
+              >
+                All ({conversations.length})
+              </button>
+              <button
+                onClick={() => setFilter('unread')}
+                className={cn(
+                  'px-2.5 py-1 rounded-md transition-colors',
+                  filter === 'unread'
+                    ? 'bg-[hsl(var(--background))] text-[hsl(var(--foreground))] shadow-xs font-semibold'
+                    : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
+                )}
+              >
+                Unread ({totalUnreadConversations})
+              </button>
+            </div>
+          )}
+
+          <Link
+            href="/messages/new"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] text-xs sm:text-sm font-medium hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--primary))] transition-all"
+            title="Start new conversation"
+          >
+            <SquarePen size={15} />
+            <span>New Chat</span>
+          </Link>
+        </div>
       </div>
 
       <div className="space-y-2">
