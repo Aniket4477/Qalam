@@ -226,16 +226,16 @@ export default function Navbar({
           aria-label="Qalam Home"
         >
           <span
-            className="text-2xl font-bold text-[hsl(var(--primary))] tracking-wide leading-none transition-transform group-hover:scale-105 font-hindi"
-            style={{ fontFamily: "'Rozha One', 'Kalam', 'Lora', serif" }}
-          >
-            क़लम
-          </span>
-          <span
-            className="text-xl font-semibold text-[hsl(var(--foreground))] tracking-tight leading-none"
+            className="font-serif text-xl font-bold text-[hsl(var(--foreground))] tracking-tight leading-none group-hover:text-[hsl(var(--primary))] transition-colors"
             style={{ fontFamily: 'Lora, Georgia, serif' }}
           >
             Qalam
+          </span>
+          <span
+            className="text-2xl font-bold text-[hsl(var(--primary))] tracking-wide leading-none transition-transform group-hover:scale-105 font-hindi"
+            style={{ fontFamily: "'Yatra One', 'Amita', 'Rozha One', cursive, serif" }}
+          >
+            क़लम
           </span>
         </Link>
 
