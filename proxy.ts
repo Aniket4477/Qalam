@@ -5,6 +5,17 @@ import { NextResponse, type NextRequest } from 'next/server'
 const PROTECTED_ROUTES = ['/write', '/settings', '/messages']
 
 export async function proxy(request: NextRequest) {
+  // If Supabase redirects with ?code= to root or another page,
+  // automatically forward to /auth/callback so the OAuth code is exchanged for a session
+  if (
+    request.nextUrl.searchParams.has('code') &&
+    request.nextUrl.pathname !== '/auth/callback'
+  ) {
+    const callbackUrl = request.nextUrl.clone()
+    callbackUrl.pathname = '/auth/callback'
+    return NextResponse.redirect(callbackUrl)
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
