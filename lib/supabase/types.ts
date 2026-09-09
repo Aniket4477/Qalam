@@ -127,6 +127,41 @@ export interface Follow {
   created_at: string
 }
 
+export interface Group {
+  id: string
+  name: string
+  description: string | null
+  avatar_url: string | null
+  created_by: string
+  created_at: string
+  updated_at: string
+}
+
+export interface GroupMember {
+  id: string
+  group_id: string
+  user_id: string
+  role: 'admin' | 'member'
+  joined_at: string
+  profiles?: Profile
+}
+
+export interface GroupMessage {
+  id: string
+  group_id: string
+  sender_id: string
+  body: string
+  created_at: string
+  profiles?: Profile
+}
+
+export interface GroupWithMeta extends Group {
+  members_count?: number
+  members?: GroupMember[]
+  last_message?: GroupMessage
+  creator?: Profile
+}
+
 // Database helper type for Supabase query builder
 export type Database = {
   public: {

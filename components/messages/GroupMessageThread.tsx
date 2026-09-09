@@ -1,0 +1,302 @@
+'use client'
+
+import { useState, useEffect, useRef } from 'react'
+import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
+import type { Group, GroupMember, GroupMessage, Profile } from '@/lib/supabase/types'
+import { formatDate } from '@/lib/utils'
+import { Send, ArrowLeft, Loader2, Users, Info } from 'lucide-react'
+import GroupInfoModal from './GroupInfoModal'
+
+interface GroupMessageThreadProps {
+  group: Group
+  members: GroupMember[]
+  currentUserId: string
+  initialMessages: GroupMessage[]
+}
+
+export default function GroupMessageThread({
+  group,
+  members,
+  currentUserId,
+  initialMessages,
+}: GroupMessageThreadProps) {
+  const [messages, setMessages] = useState<GroupMessage[]>(initialMessages)
+  const [newMessage, setNewMessage] = useState('')
+  const [sending, setSending] = useState(false)
+  const [infoOpen, setInfoOpen] = useState(false)
+  const bottomRef = useRef<HTMLDivElement>(null)
+
+  const supabase = createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sb = supabase as any
+
+  // Member map by user_id for quick avatar/name resolution
+  const memberMap = useRef<Record<string, Profile>>({})
+  members.forEach((m) => {
+    if (m.profiles) memberMap.current[m.user_id] = m.profiles
+  })
+
+  // Auto-scroll to bottom on new messages
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  // Real-time listener for group messages
+  useEffect(() => {
+    const channel = supabase
+      .channel(`group_messages:${group.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'group_messages',
+          filter: `group_id=eq.${group.id}`,
+        },
+        async (payload: { new: GroupMessage }) => {
+          const newMsg = payload.new
+          // Check if already in list
+          setMessages((prev) => {
+            if (prev.find((m) => m.id === newMsg.id)) return prev
+            // Attach sender profile from cache or fallback
+            const senderProfile = memberMap.current[newMsg.sender_id]
+            return [...prev, { ...newMsg, profiles: senderProfile }]
+          })
+
+          // If sender not in cache, fetch profile asynchronously
+          if (!memberMap.current[newMsg.sender_id]) {
+            const { data } = await sb
+              .from('profiles')
+              .select('*')
+              .eq('id', newMsg.sender_id)
+              .single()
+
+            if (data) {
+              memberMap.current[newMsg.sender_id] = data as Profile
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === newMsg.id ? { ...m, profiles: data as Profile } : m
+                )
+              )
+            }
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [group.id, supabase, sb])
+
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const body = newMessage.trim()
+    if (!body || sending) return
+
+    setSending(true)
+    setNewMessage('')
+
+    try {
+      const { data, error } = await sb
+        .from('group_messages')
+        .insert({
+          group_id: group.id,
+          sender_id: currentUserId,
+          body,
+        })
+        .select('*, profiles(*)')
+        .single()
+
+      if (error) throw error
+
+      if (data) {
+        setMessages((prev) => {
+          if (prev.find((m) => m.id === data.id)) return prev
+          return [...prev, data as GroupMessage]
+        })
+      }
+    } catch (err) {
+      console.error('Failed to send group message:', err)
+      setNewMessage(body)
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col h-[calc(100vh-3.5rem)]">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[hsl(var(--border))] bg-[hsl(var(--background)/0.9)] backdrop-blur-md z-10">
+        <div className="flex items-center gap-3 min-w-0">
+          <Link
+            href="/messages"
+            className="p-1.5 rounded-lg text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--foreground))] transition-colors"
+            aria-label="Back to messages"
+          >
+            <ArrowLeft size={18} />
+          </Link>
+
+          <button
+            onClick={() => setInfoOpen(true)}
+            className="flex items-center gap-2.5 min-w-0 text-left hover:opacity-80 transition-opacity"
+          >
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[hsl(var(--primary))] to-[hsl(var(--primary)/0.6)] text-[hsl(var(--primary-foreground))] flex items-center justify-center shrink-0 shadow-xs">
+              <Users size={18} />
+            </div>
+            <div className="min-w-0">
+              <h1
+                className="font-bold text-sm sm:text-base leading-none text-[hsl(var(--foreground))] truncate"
+                style={{ fontFamily: 'Lora, Georgia, serif' }}
+              >
+                {group.name}
+              </h1>
+              <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5 truncate">
+                {members.length} member{members.length !== 1 ? 's' : ''} • Tap for circle info
+              </p>
+            </div>
+          </button>
+        </div>
+
+        <button
+          onClick={() => setInfoOpen(true)}
+          className="p-2 rounded-lg border border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--accent))] transition-colors"
+          title="Circle Info"
+          aria-label="Circle details"
+        >
+          <Info size={17} />
+        </button>
+      </div>
+
+      {/* Messages Stream */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {messages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-center text-[hsl(var(--muted-foreground))]">
+            <div className="p-3 rounded-2xl bg-[hsl(var(--muted)/0.5)] mb-3">
+              <Users size={28} className="opacity-40" />
+            </div>
+            <p className="text-sm font-semibold text-[hsl(var(--foreground))]">
+              Welcome to {group.name}!
+            </p>
+            <p className="text-xs max-w-xs mt-1">
+              Send the first poem, shayari, or greeting to start the conversation with the circle.
+            </p>
+          </div>
+        ) : (
+          messages.map((msg) => {
+            const isSelf = msg.sender_id === currentUserId
+            const sender = msg.profiles || memberMap.current[msg.sender_id]
+
+            return (
+              <div
+                key={msg.id}
+                className={`flex gap-2.5 max-w-[85%] sm:max-w-[70%] ${
+                  isSelf ? 'ml-auto flex-row-reverse' : 'mr-auto'
+                }`}
+              >
+                {/* Sender avatar if message is from another member */}
+                {!isSelf && (
+                  <Link
+                    href={sender ? `/u/${sender.username}` : '#'}
+                    className="shrink-0 self-end mb-1"
+                    title={sender?.display_name}
+                  >
+                    {sender?.avatar_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={sender.avatar_url}
+                        alt={sender.display_name}
+                        className="w-7 h-7 rounded-full object-cover border border-[hsl(var(--border))]"
+                      />
+                    ) : (
+                      <div className="w-7 h-7 rounded-full bg-[hsl(var(--primary)/0.15)] text-[hsl(var(--primary))] flex items-center justify-center text-[10px] font-bold">
+                        {sender?.display_name?.slice(0, 2).toUpperCase() || 'QA'}
+                      </div>
+                    )}
+                  </Link>
+                )}
+
+                <div
+                  className={`flex flex-col ${
+                    isSelf ? 'items-end' : 'items-start'
+                  }`}
+                >
+                  {/* Sender identity on incoming message */}
+                  {!isSelf && sender && (
+                    <div className="flex items-center gap-1.5 mb-1 px-1">
+                      <span className="text-xs font-semibold text-[hsl(var(--primary))]">
+                        {sender.display_name}
+                      </span>
+                      <span className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono">
+                        @{sender.username}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Message bubble */}
+                  <div
+                    className={`rounded-2xl px-4 py-2.5 text-sm break-words shadow-xs ${
+                      isSelf
+                        ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-br-xs'
+                        : 'bg-[hsl(var(--muted)/0.7)] text-[hsl(var(--foreground))] border border-[hsl(var(--border)/0.5)] rounded-bl-xs'
+                    }`}
+                  >
+                    <p className="whitespace-pre-wrap leading-relaxed">{msg.body}</p>
+                    <p
+                      className={`text-[10px] mt-1 text-right select-none ${
+                        isSelf
+                          ? 'text-[hsl(var(--primary-foreground)/0.7)]'
+                          : 'text-[hsl(var(--muted-foreground))]'
+                      }`}
+                    >
+                      {formatDate(msg.created_at)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )
+          })
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Input bar */}
+      <form
+        onSubmit={handleSend}
+        className="flex gap-2 p-3 border-t border-[hsl(var(--border))] bg-[hsl(var(--background)/0.9)] backdrop-blur-md"
+      >
+        <input
+          type="text"
+          value={newMessage}
+          onChange={(e) => setNewMessage(e.target.value)}
+          placeholder={`Share with ${group.name}...`}
+          disabled={sending}
+          className="flex-1 px-4 py-2.5 bg-[hsl(var(--input)/0.5)] border border-[hsl(var(--border))] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))] placeholder:text-[hsl(var(--muted-foreground))]"
+        />
+        <button
+          type="submit"
+          disabled={sending || !newMessage.trim()}
+          className="px-4 py-2.5 bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-xl hover:opacity-90 disabled:opacity-50 transition-opacity shadow-xs flex items-center justify-center"
+          aria-label="Send message"
+        >
+          {sending ? (
+            <Loader2 size={17} className="animate-spin" />
+          ) : (
+            <Send size={17} />
+          )}
+        </button>
+      </form>
+
+      {/* Circle Info Drawer / Modal */}
+      {infoOpen && (
+        <GroupInfoModal
+          group={group}
+          members={members}
+          currentUserId={currentUserId}
+          onClose={() => setInfoOpen(false)}
+        />
+      )}
+    </div>
+  )
+}

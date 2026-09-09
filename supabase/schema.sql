@@ -584,3 +584,110 @@ DROP POLICY IF EXISTS "follows_owner_delete" ON public.follows;
 CREATE POLICY "follows_owner_delete" ON public.follows
   FOR DELETE USING (follower_id = auth.uid());
 
+-- ============================================================
+-- GROUPS & GROUP MESSAGES
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.groups (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  description TEXT,
+  avatar_url TEXT,
+  created_by UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS groups_created_by_idx ON public.groups(created_by);
+CREATE INDEX IF NOT EXISTS groups_created_at_idx ON public.groups(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS public.group_members (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  group_id UUID NOT NULL REFERENCES public.groups(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  role TEXT NOT NULL DEFAULT 'member',
+  joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(group_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS group_members_group_idx ON public.group_members(group_id);
+CREATE INDEX IF NOT EXISTS group_members_user_idx ON public.group_members(user_id);
+
+CREATE TABLE IF NOT EXISTS public.group_messages (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  group_id UUID NOT NULL REFERENCES public.groups(id) ON DELETE CASCADE,
+  sender_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  body TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS group_messages_group_idx ON public.group_messages(group_id, created_at ASC);
+CREATE INDEX IF NOT EXISTS group_messages_sender_idx ON public.group_messages(sender_id);
+
+CREATE OR REPLACE FUNCTION is_group_member(p_group_id UUID, p_user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.group_members
+    WHERE group_id = p_group_id AND user_id = p_user_id
+  );
+$$;
+
+ALTER TABLE public.groups ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.group_members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.group_messages ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "groups_member_read" ON public.groups;
+CREATE POLICY "groups_member_read" ON public.groups
+  FOR SELECT USING (created_by = auth.uid() OR is_group_member(id, auth.uid()));
+
+DROP POLICY IF EXISTS "groups_authenticated_insert" ON public.groups;
+CREATE POLICY "groups_authenticated_insert" ON public.groups
+  FOR INSERT WITH CHECK (auth.role() = 'authenticated' AND created_by = auth.uid());
+
+DROP POLICY IF EXISTS "groups_admin_update" ON public.groups;
+CREATE POLICY "groups_admin_update" ON public.groups
+  FOR UPDATE USING (created_by = auth.uid());
+
+DROP POLICY IF EXISTS "groups_admin_delete" ON public.groups;
+CREATE POLICY "groups_admin_delete" ON public.groups
+  FOR DELETE USING (created_by = auth.uid());
+
+DROP POLICY IF EXISTS "group_members_read" ON public.group_members;
+CREATE POLICY "group_members_read" ON public.group_members
+  FOR SELECT USING (user_id = auth.uid() OR is_group_member(group_id, auth.uid()));
+
+DROP POLICY IF EXISTS "group_members_insert" ON public.group_members;
+CREATE POLICY "group_members_insert" ON public.group_members
+  FOR INSERT WITH CHECK (
+    auth.role() = 'authenticated' AND (
+      user_id = auth.uid() OR
+      is_group_member(group_id, auth.uid()) OR
+      EXISTS (SELECT 1 FROM public.groups WHERE id = group_id AND created_by = auth.uid())
+    )
+  );
+
+DROP POLICY IF EXISTS "group_members_delete" ON public.group_members;
+CREATE POLICY "group_members_delete" ON public.group_members
+  FOR DELETE USING (
+    user_id = auth.uid() OR
+    EXISTS (SELECT 1 FROM public.groups WHERE id = group_id AND created_by = auth.uid())
+  );
+
+DROP POLICY IF EXISTS "group_messages_read" ON public.group_messages;
+CREATE POLICY "group_messages_read" ON public.group_messages
+  FOR SELECT USING (is_group_member(group_id, auth.uid()));
+
+DROP POLICY IF EXISTS "group_messages_insert" ON public.group_messages;
+CREATE POLICY "group_messages_insert" ON public.group_messages
+  FOR INSERT WITH CHECK (
+    auth.role() = 'authenticated' AND
+    sender_id = auth.uid() AND
+    is_group_member(group_id, auth.uid())
+  );
+
+ALTER PUBLICATION supabase_realtime ADD TABLE public.group_messages;
+
