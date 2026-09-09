@@ -4,7 +4,12 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import type { Message, Profile } from '@/lib/supabase/types'
-import { formatDate } from '@/lib/utils'
+import {
+  formatDate,
+  formatChatDividerTime,
+  shouldShowChatDivider,
+  formatBubbleTime,
+} from '@/lib/utils'
 import { Send, ArrowLeft, Loader2 } from 'lucide-react'
 
 interface MessageThreadProps {
@@ -104,21 +109,39 @@ export default function MessageThread({
             Start a conversation with {otherUser.display_name}
           </div>
         )}
-        {messages.map((msg) => {
+        {messages.map((msg, idx) => {
+          const prevMsg = idx > 0 ? messages[idx - 1] : undefined
+          const showDivider = shouldShowChatDivider(msg.created_at, prevMsg?.created_at)
           const isOwn = msg.sender_id === currentUserId
+
           return (
-            <div key={msg.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'} animate-fade-in`}>
-              <div
-                className={`max-w-xs md:max-w-sm lg:max-w-md px-3 py-2 rounded-xl text-sm ${
-                  isOwn
-                    ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-br-sm'
-                    : 'bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] rounded-bl-sm'
-                }`}
-              >
-                <p className="whitespace-pre-wrap break-words">{msg.body}</p>
-                <p className={`text-xs mt-1 ${isOwn ? 'text-[hsl(var(--primary-foreground)/0.7)]' : 'text-[hsl(var(--muted-foreground))]'}`}>
-                  {formatDate(msg.created_at)}
-                </p>
+            <div key={msg.id} className="w-full flex flex-col">
+              {showDivider && (
+                <div className="flex justify-center my-3.5 select-none">
+                  <span className="text-[11px] font-medium text-[hsl(var(--muted-foreground))] tracking-wide">
+                    {formatChatDividerTime(msg.created_at)}
+                  </span>
+                </div>
+              )}
+              <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} animate-fade-in`}>
+                <div
+                  className={`max-w-xs md:max-w-sm lg:max-w-md px-3.5 py-2 rounded-2xl text-sm shadow-xs ${
+                    isOwn
+                      ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-br-xs'
+                      : 'bg-[hsl(var(--muted)/0.7)] text-[hsl(var(--foreground))] border border-[hsl(var(--border)/0.5)] rounded-bl-xs'
+                  }`}
+                >
+                  <p className="whitespace-pre-wrap break-words leading-relaxed">{msg.body}</p>
+                  <p
+                    className={`text-[10px] mt-1 text-right select-none ${
+                      isOwn
+                        ? 'text-[hsl(var(--primary-foreground)/0.75)]'
+                        : 'text-[hsl(var(--muted-foreground))]'
+                    }`}
+                  >
+                    {formatBubbleTime(msg.created_at)}
+                  </p>
+                </div>
               </div>
             </div>
           )

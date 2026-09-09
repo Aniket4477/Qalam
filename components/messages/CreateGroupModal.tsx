@@ -141,7 +141,7 @@ export default function CreateGroupModal({
       await sb.from('group_messages').insert({
         group_id: newGroup.id,
         sender_id: currentUserId,
-        body: `Created the group "${trimmedName}"`,
+        body: `[system]:create|${trimmedName}`,
       })
 
       onClose()

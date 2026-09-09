@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { formatDate, cn } from '@/lib/utils'
+import { formatDate, cn, formatGroupSystemMessage } from '@/lib/utils'
 import { MessageCircle, SquarePen, Users, Plus } from 'lucide-react'
 import type { Profile, GroupWithMeta } from '@/lib/supabase/types'
 import CreateGroupModal from './CreateGroupModal'
@@ -228,15 +228,28 @@ export default function MessagesClient({
 
                     <p className="text-xs text-[hsl(var(--muted-foreground))] truncate mt-1">
                       {lastMsg ? (
-                        <>
-                          <span className="font-semibold text-[hsl(var(--foreground))]">
-                            {lastMsg.sender_id === currentUserId
-                              ? 'You'
-                              : lastMsg.profiles?.display_name || 'Member'}
-                            :{' '}
-                          </span>
-                          <span>{lastMsg.body}</span>
-                        </>
+                        (() => {
+                          const sys = formatGroupSystemMessage(
+                            lastMsg.body,
+                            lastMsg.sender_id,
+                            currentUserId,
+                            lastMsg.profiles
+                          )
+                          if (sys.isSystem) {
+                            return <span className="italic">{sys.text}</span>
+                          }
+                          return (
+                            <>
+                              <span className="font-semibold text-[hsl(var(--foreground))]">
+                                {lastMsg.sender_id === currentUserId
+                                  ? 'You'
+                                  : lastMsg.profiles?.display_name || 'Member'}
+                                :{' '}
+                              </span>
+                              <span>{lastMsg.body}</span>
+                            </>
+                          )
+                        })()
                       ) : (
                         <span className="italic">
                           {group.description || 'Circle created. Tap to start chatting.'}

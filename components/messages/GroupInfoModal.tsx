@@ -133,11 +133,31 @@ export default function GroupInfoModal({
       setIsEditing(false)
 
       // Post update notification message
-      await sb.from('group_messages').insert({
-        group_id: currentGroup.id,
-        sender_id: currentUserId,
-        body: `updated the circle info to "${trimmedName}"`,
-      })
+      if (trimmedName !== currentGroup.name && avatarFile) {
+        await sb.from('group_messages').insert({
+          group_id: currentGroup.id,
+          sender_id: currentUserId,
+          body: `[system]:name_and_photo|${trimmedName}`,
+        })
+      } else if (trimmedName !== currentGroup.name) {
+        await sb.from('group_messages').insert({
+          group_id: currentGroup.id,
+          sender_id: currentUserId,
+          body: `[system]:name|${trimmedName}`,
+        })
+      } else if (avatarFile) {
+        await sb.from('group_messages').insert({
+          group_id: currentGroup.id,
+          sender_id: currentUserId,
+          body: `[system]:photo`,
+        })
+      } else if (editDescription.trim() !== (currentGroup.description || '')) {
+        await sb.from('group_messages').insert({
+          group_id: currentGroup.id,
+          sender_id: currentUserId,
+          body: `[system]:desc`,
+        })
+      }
     } catch (err: unknown) {
       console.error('Error updating group:', err)
       setEditError(err instanceof Error ? err.message : 'Failed to update group')
@@ -173,8 +193,8 @@ export default function GroupInfoModal({
         sender_id: currentUserId,
         body:
           newRole === 'admin'
-            ? `made ${targetName} a circle admin`
-            : `dismissed ${targetName} as admin`,
+            ? `[system]:admin_promote|${targetMember.user_id}|${targetName}`
+            : `[system]:admin_demote|${targetMember.user_id}|${targetName}`,
       })
     } catch (err) {
       console.error('Error changing admin role:', err)
@@ -206,7 +226,7 @@ export default function GroupInfoModal({
       await sb.from('group_messages').insert({
         group_id: currentGroup.id,
         sender_id: currentUserId,
-        body: `removed ${targetName} from the circle`,
+        body: `[system]:member_remove|${targetMember.user_id}|${targetName}`,
       })
     } catch (err) {
       console.error('Error removing member:', err)
@@ -276,7 +296,7 @@ export default function GroupInfoModal({
       await sb.from('group_messages').insert({
         group_id: currentGroup.id,
         sender_id: currentUserId,
-        body: `added ${profile.display_name} to the circle`,
+        body: `[system]:member_add|${profile.id}|${profile.display_name}`,
       })
     } catch (err) {
       console.error('Error adding member:', err)
@@ -301,7 +321,7 @@ export default function GroupInfoModal({
       await sb.from('group_messages').insert({
         group_id: currentGroup.id,
         sender_id: currentUserId,
-        body: 'left the circle',
+        body: `[system]:member_leave`,
       })
 
       onClose()

@@ -4,7 +4,13 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import type { Group, GroupMember, GroupMessage, Profile } from '@/lib/supabase/types'
-import { formatDate } from '@/lib/utils'
+import {
+  formatDate,
+  formatChatDividerTime,
+  shouldShowChatDivider,
+  formatBubbleTime,
+  formatGroupSystemMessage,
+} from '@/lib/utils'
 import { Send, ArrowLeft, Loader2, Users, Info } from 'lucide-react'
 import GroupInfoModal from './GroupInfoModal'
 
@@ -195,76 +201,103 @@ export default function GroupMessageThread({
             </p>
           </div>
         ) : (
-          messages.map((msg) => {
+          messages.map((msg, idx) => {
+            const prevMsg = idx > 0 ? messages[idx - 1] : undefined
+            const showDivider = shouldShowChatDivider(msg.created_at, prevMsg?.created_at)
             const isSelf = msg.sender_id === currentUserId
             const sender = msg.profiles || memberMap.current[msg.sender_id]
+            const systemInfo = formatGroupSystemMessage(
+              msg.body,
+              msg.sender_id,
+              currentUserId,
+              sender
+            )
 
             return (
-              <div
-                key={msg.id}
-                className={`flex gap-2.5 max-w-[85%] sm:max-w-[70%] ${
-                  isSelf ? 'ml-auto flex-row-reverse' : 'mr-auto'
-                }`}
-              >
-                {/* Sender avatar if message is from another member */}
-                {!isSelf && (
-                  <Link
-                    href={sender ? `/u/${sender.username}` : '#'}
-                    className="shrink-0 self-end mb-1"
-                    title={sender?.display_name}
-                  >
-                    {sender?.avatar_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={sender.avatar_url}
-                        alt={sender.display_name}
-                        className="w-7 h-7 rounded-full object-cover border border-[hsl(var(--border))]"
-                      />
-                    ) : (
-                      <div className="w-7 h-7 rounded-full bg-[hsl(var(--primary)/0.15)] text-[hsl(var(--primary))] flex items-center justify-center text-[10px] font-bold">
-                        {sender?.display_name?.slice(0, 2).toUpperCase() || 'QA'}
-                      </div>
-                    )}
-                  </Link>
+              <div key={msg.id} className="w-full flex flex-col">
+                {/* Centered Timestamp Divider (e.g., Wed 10:40 PM) */}
+                {showDivider && (
+                  <div className="flex justify-center my-3.5 select-none">
+                    <span className="text-[11px] font-medium text-[hsl(var(--muted-foreground))] tracking-wide">
+                      {formatChatDividerTime(msg.created_at)}
+                    </span>
+                  </div>
                 )}
 
-                <div
-                  className={`flex flex-col ${
-                    isSelf ? 'items-end' : 'items-start'
-                  }`}
-                >
-                  {/* Sender identity on incoming message */}
-                  {!isSelf && sender && (
-                    <div className="flex items-center gap-1.5 mb-1 px-1">
-                      <span className="text-xs font-semibold text-[hsl(var(--primary))]">
-                        {sender.display_name}
-                      </span>
-                      <span className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono">
-                        @{sender.username}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Message bubble */}
-                  <div
-                    className={`rounded-2xl px-4 py-2.5 text-sm break-words shadow-xs ${
-                      isSelf
-                        ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-br-xs'
-                        : 'bg-[hsl(var(--muted)/0.7)] text-[hsl(var(--foreground))] border border-[hsl(var(--border)/0.5)] rounded-bl-xs'
-                    }`}
-                  >
-                    <p className="whitespace-pre-wrap leading-relaxed">{msg.body}</p>
-                    <p
-                      className={`text-[10px] mt-1 text-right select-none ${
-                        isSelf
-                          ? 'text-[hsl(var(--primary-foreground)/0.7)]'
-                          : 'text-[hsl(var(--muted-foreground))]'
-                      }`}
-                    >
-                      {formatDate(msg.created_at)}
+                {/* System notification or standard message bubble */}
+                {systemInfo.isSystem ? (
+                  <div className="flex justify-center my-2 px-4 text-center select-none">
+                    <p className="text-xs text-[hsl(var(--muted-foreground))] leading-relaxed max-w-sm">
+                      {systemInfo.text}
                     </p>
                   </div>
-                </div>
+                ) : (
+                  <div
+                    className={`flex gap-2.5 max-w-[85%] sm:max-w-[70%] ${
+                      isSelf ? 'ml-auto flex-row-reverse' : 'mr-auto'
+                    }`}
+                  >
+                    {/* Sender avatar if message is from another member */}
+                    {!isSelf && (
+                      <Link
+                        href={sender ? `/u/${sender.username}` : '#'}
+                        className="shrink-0 self-end mb-1"
+                        title={sender?.display_name}
+                      >
+                        {sender?.avatar_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={sender.avatar_url}
+                            alt={sender.display_name}
+                            className="w-7 h-7 rounded-full object-cover border border-[hsl(var(--border))]"
+                          />
+                        ) : (
+                          <div className="w-7 h-7 rounded-full bg-[hsl(var(--primary)/0.15)] text-[hsl(var(--primary))] flex items-center justify-center text-[10px] font-bold">
+                            {sender?.display_name?.slice(0, 2).toUpperCase() || 'QA'}
+                          </div>
+                        )}
+                      </Link>
+                    )}
+
+                    <div
+                      className={`flex flex-col ${
+                        isSelf ? 'items-end' : 'items-start'
+                      }`}
+                    >
+                      {/* Sender identity on incoming message */}
+                      {!isSelf && sender && (
+                        <div className="flex items-center gap-1.5 mb-1 px-1">
+                          <span className="text-xs font-semibold text-[hsl(var(--primary))]">
+                            {sender.display_name}
+                          </span>
+                          <span className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono">
+                            @{sender.username}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Message bubble */}
+                      <div
+                        className={`rounded-2xl px-4 py-2 text-sm break-words shadow-xs ${
+                          isSelf
+                            ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-br-xs'
+                            : 'bg-[hsl(var(--muted)/0.7)] text-[hsl(var(--foreground))] border border-[hsl(var(--border)/0.5)] rounded-bl-xs'
+                        }`}
+                      >
+                        <p className="whitespace-pre-wrap leading-relaxed">{msg.body}</p>
+                        <p
+                          className={`text-[10px] mt-1 text-right select-none ${
+                            isSelf
+                              ? 'text-[hsl(var(--primary-foreground)/0.75)]'
+                              : 'text-[hsl(var(--muted-foreground))]'
+                          }`}
+                        >
+                          {formatBubbleTime(msg.created_at)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )
           })

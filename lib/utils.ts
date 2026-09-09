@@ -104,3 +104,228 @@ export const RTL_LANGUAGES = new Set(['Urdu', 'Arabic', 'Persian'])
 export function isRTL(language: string): boolean {
   return RTL_LANGUAGES.has(language)
 }
+
+/**
+ * Format timestamp divider in chat stream (e.g., "Wed 10:40 PM", "Sun 8:00 AM")
+ */
+export function formatChatDividerTime(dateString: string): string {
+  const date = new Date(dateString)
+  if (isNaN(date.getTime())) return ''
+
+  const now = new Date()
+  const timeStr = date.toLocaleTimeString([], {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+
+  const diffMs = now.getTime() - date.getTime()
+  const daysDiff = diffMs / (1000 * 60 * 60 * 24)
+
+  if (daysDiff < 7) {
+    const weekday = date.toLocaleDateString([], { weekday: 'short' })
+    return `${weekday} ${timeStr}` // e.g. "Wed 10:40 PM", "Sun 8:00 AM"
+  }
+
+  const monthDay = date.toLocaleDateString([], { month: 'short', day: 'numeric' })
+  const yearStr = date.getFullYear() !== now.getFullYear() ? ` ${date.getFullYear()}` : ''
+  return `${monthDay}${yearStr}, ${timeStr}`
+}
+
+/**
+ * Check if a timestamp divider should be displayed between two consecutive messages
+ */
+export function shouldShowChatDivider(currentDateStr: string, prevDateStr?: string): boolean {
+  if (!prevDateStr) return true
+  const curr = new Date(currentDateStr).getTime()
+  const prev = new Date(prevDateStr).getTime()
+  if (isNaN(curr) || isNaN(prev)) return false
+  // Difference greater than 20 minutes (20 * 60 * 1000 = 1,200,000ms)
+  return Math.abs(curr - prev) > 20 * 60 * 1000
+}
+
+/**
+ * Format message bubble timestamp (e.g., "10:42 PM")
+ */
+export function formatBubbleTime(dateString: string): string {
+  const date = new Date(dateString)
+  if (isNaN(date.getTime())) return ''
+  return date.toLocaleTimeString([], {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+}
+
+/**
+ * Format group system notifications (admin changes, photo/name updates, member join/leave)
+ */
+export function formatGroupSystemMessage(
+  body: string,
+  senderId: string,
+  currentUserId: string,
+  senderProfile?: { display_name?: string | null; username?: string | null } | null
+): { isSystem: boolean; text: string } {
+  const isSenderSelf = senderId === currentUserId
+  const senderName = isSenderSelf
+    ? 'You'
+    : senderProfile?.display_name || (senderProfile?.username ? `@${senderProfile.username}` : 'A member')
+
+  // 1. Structured system messages: [system]:<action>|<args>
+  if (body.startsWith('[system]:')) {
+    const content = body.slice(9)
+    const [action, ...args] = content.split('|')
+
+    switch (action) {
+      case 'create': {
+        const groupName = args[0] || 'the circle'
+        return {
+          isSystem: true,
+          text: isSenderSelf
+            ? `You created the circle "${groupName}"`
+            : `${senderName} created the circle "${groupName}"`,
+        }
+      }
+      case 'name': {
+        const newName = args[0] || ''
+        return {
+          isSystem: true,
+          text: isSenderSelf
+            ? `You changed the circle name to "${newName}"`
+            : `${senderName} changed the circle name to "${newName}"`,
+        }
+      }
+      case 'photo': {
+        return {
+          isSystem: true,
+          text: isSenderSelf
+            ? `You changed the circle photo`
+            : `${senderName} changed the circle photo`,
+        }
+      }
+      case 'name_and_photo': {
+        const newName = args[0] || ''
+        return {
+          isSystem: true,
+          text: isSenderSelf
+            ? `You changed the circle photo and name to "${newName}"`
+            : `${senderName} changed the circle photo and name to "${newName}"`,
+        }
+      }
+      case 'desc': {
+        return {
+          isSystem: true,
+          text: isSenderSelf
+            ? `You updated the circle description`
+            : `${senderName} updated the circle description`,
+        }
+      }
+      case 'admin_promote': {
+        const [targetId, targetName] = args
+        const isTargetSelf = targetId === currentUserId
+        return {
+          isSystem: true,
+          text: isSenderSelf
+            ? `You made ${targetName} a circle admin`
+            : isTargetSelf
+            ? `${senderName} made you an admin`
+            : `${senderName} made ${targetName} an admin`,
+        }
+      }
+      case 'admin_demote': {
+        const [targetId, targetName] = args
+        const isTargetSelf = targetId === currentUserId
+        return {
+          isSystem: true,
+          text: isSenderSelf
+            ? `You dismissed ${targetName} as admin`
+            : isTargetSelf
+            ? `${senderName} dismissed you as admin`
+            : `${senderName} dismissed ${targetName} as admin`,
+        }
+      }
+      case 'member_add': {
+        const [targetId, targetName] = args
+        const isTargetSelf = targetId === currentUserId
+        return {
+          isSystem: true,
+          text: isSenderSelf
+            ? `You added ${targetName} to the circle`
+            : isTargetSelf
+            ? `${senderName} added you to the circle`
+            : `${senderName} added ${targetName} to the circle`,
+        }
+      }
+      case 'member_remove': {
+        const [targetId, targetName] = args
+        const isTargetSelf = targetId === currentUserId
+        return {
+          isSystem: true,
+          text: isSenderSelf
+            ? `You removed ${targetName} from the circle`
+            : isTargetSelf
+            ? `${senderName} removed you from the circle`
+            : `${senderName} removed ${targetName} from the circle`,
+        }
+      }
+      case 'member_leave': {
+        return {
+          isSystem: true,
+          text: isSenderSelf ? `You left the circle` : `${senderName} left the circle`,
+        }
+      }
+      default:
+        return { isSystem: true, text: content }
+    }
+  }
+
+  // 2. Backward compatibility fallback for legacy messages
+  const trimmed = body.trim()
+  if (trimmed.startsWith('Created the group') || trimmed.startsWith('Created the circle')) {
+    return {
+      isSystem: true,
+      text: isSenderSelf
+        ? `You ${trimmed.charAt(0).toLowerCase() + trimmed.slice(1)}`
+        : `${senderName} ${trimmed.charAt(0).toLowerCase() + trimmed.slice(1)}`,
+    }
+  }
+  if (trimmed.startsWith('updated the circle info')) {
+    return {
+      isSystem: true,
+      text: isSenderSelf ? `You ${trimmed}` : `${senderName} ${trimmed}`,
+    }
+  }
+  if (trimmed.includes('made ') && trimmed.endsWith('a circle admin')) {
+    return {
+      isSystem: true,
+      text: isSenderSelf ? `You ${trimmed}` : `${senderName} ${trimmed}`,
+    }
+  }
+  if (trimmed.includes('dismissed ') && trimmed.endsWith('as admin')) {
+    return {
+      isSystem: true,
+      text: isSenderSelf ? `You ${trimmed}` : `${senderName} ${trimmed}`,
+    }
+  }
+  if (trimmed.includes('removed ') && trimmed.endsWith('from the circle')) {
+    return {
+      isSystem: true,
+      text: isSenderSelf ? `You ${trimmed}` : `${senderName} ${trimmed}`,
+    }
+  }
+  if (trimmed.includes('added ') && trimmed.endsWith('to the circle')) {
+    return {
+      isSystem: true,
+      text: isSenderSelf ? `You ${trimmed}` : `${senderName} ${trimmed}`,
+    }
+  }
+  if (trimmed === 'left the circle') {
+    return {
+      isSystem: true,
+      text: isSenderSelf ? `You left the circle` : `${senderName} left the circle`,
+    }
+  }
+
+  return { isSystem: false, text: body }
+}
+
