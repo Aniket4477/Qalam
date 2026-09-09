@@ -4,6 +4,8 @@ import './globals.css'
 import { ThemeProvider } from '@/components/providers/ThemeProvider'
 import { Toaster } from '@/components/ui/toaster'
 import Navbar from '@/components/nav/Navbar'
+import { createClient } from '@/lib/supabase/server'
+import type { Profile } from '@/lib/supabase/types'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -26,17 +28,34 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  let initialProfile: Profile | null = null
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (supabase as any)
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+      if (data) initialProfile = data as Profile
+    }
+  } catch {
+    // Gracefully handle if cookies/session cannot be read
+  }
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <ThemeProvider>
           <div className="min-h-screen flex flex-col">
-            <Navbar />
+            <Navbar initialProfile={initialProfile} />
             <main className="flex-1">
               {children}
             </main>

@@ -92,7 +92,7 @@ export default function SettingsPage() {
         return
       }
       const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path)
-      avatarUrl = urlData.publicUrl
+      avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`
     }
 
     if (coverFile) {
@@ -107,7 +107,7 @@ export default function SettingsPage() {
         return
       }
       const { data: urlData } = supabase.storage.from('covers').getPublicUrl(path)
-      coverUrl = urlData.publicUrl
+      coverUrl = `${urlData.publicUrl}?t=${Date.now()}`
     }
 
     const updateData = {
@@ -128,6 +128,13 @@ export default function SettingsPage() {
     } else {
       setSuccess(true)
       setTimeout(() => setSuccess(false), 3000)
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('profile-updated', {
+            detail: { ...profile, ...updateData },
+          })
+        )
+      }
       router.refresh()
     }
     setSaving(false)

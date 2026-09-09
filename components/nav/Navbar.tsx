@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useTheme } from 'next-themes'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/lib/supabase/types'
@@ -13,7 +13,6 @@ import {
   Search,
   Bell,
   MessageCircle,
-  Trophy,
   Menu,
   X,
   LogOut,
@@ -22,45 +21,70 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-export default function Navbar() {
+interface NavbarProps {
+  initialProfile?: Profile | null
+}
+
+export default function Navbar({ initialProfile }: NavbarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { theme, setTheme } = useTheme()
-  const [profile, setProfile] = useState<Profile | null>(null)
+  const [profile, setProfile] = useState<Profile | null>(initialProfile ?? null)
+  const [imgError, setImgError] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
-  const supabase = createClient()
+
+  const supabase = useMemo(() => createClient(), [])
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sb = supabase as any
+
+  // Sync initialProfile if supplied from parent / layout
+  useEffect(() => {
+    if (initialProfile) {
+      setProfile(initialProfile)
+    }
+  }, [initialProfile])
+
+  // Reset img error if avatar_url changes
+  useEffect(() => {
+    setImgError(false)
+  }, [profile?.avatar_url])
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  useEffect(() => {
-    const getProfile = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { data } = await sb
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single()
-      if (data) setProfile(data as Profile)
-
-      // unread notifications
-      const { count } = await sb
-        .from('notifications')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .is('read_at', null)
-      setUnreadCount(count ?? 0)
+  const getProfile = useCallback(async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      setProfile(null)
+      return
     }
+
+    const { data } = await sb
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single()
+    if (data) {
+      setProfile(data as Profile)
+    }
+
+    // unread notifications
+    const { count } = await sb
+      .from('notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .is('read_at', null)
+    setUnreadCount(count ?? 0)
+  }, [supabase, sb])
+
+  // Initial fetch and auth listener
+  useEffect(() => {
     getProfile()
 
     const {
@@ -68,8 +92,53 @@ export default function Navbar() {
     } = supabase.auth.onAuthStateChange(() => {
       getProfile()
     })
-    return () => subscription.unsubscribe()
-  }, [supabase])
+
+    const handleProfileUpdated = (e: Event) => {
+      const customEvent = e as CustomEvent<Partial<Profile>>
+      if (customEvent.detail) {
+        setProfile((prev) => (prev ? { ...prev, ...customEvent.detail } : null))
+      }
+      getProfile()
+    }
+    window.addEventListener('profile-updated', handleProfileUpdated)
+
+    return () => {
+      subscription.unsubscribe()
+      window.removeEventListener('profile-updated', handleProfileUpdated)
+    }
+  }, [getProfile, supabase])
+
+  // Re-fetch on pathname changes (ensures navigation keeps navbar fresh)
+  useEffect(() => {
+    getProfile()
+  }, [pathname, getProfile])
+
+  // Realtime subscription for live profile updates
+  useEffect(() => {
+    if (!profile?.id) return
+
+    const channel = supabase
+      .channel(`profile-${profile.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${profile.id}`,
+        },
+        (payload) => {
+          if (payload.new) {
+            setProfile(payload.new as Profile)
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [profile?.id, supabase])
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
@@ -84,6 +153,10 @@ export default function Navbar() {
     { href: '/explore', label: 'Explore' },
     { href: '/competitions', label: 'Competitions' },
   ]
+
+  const initials = (profile?.display_name || profile?.username || 'U')
+    .slice(0, 2)
+    .toUpperCase()
 
   return (
     <header className="sticky top-0 z-50 border-b border-[hsl(var(--border))] bg-[hsl(var(--background)/0.9)] backdrop-blur-md">
@@ -171,28 +244,44 @@ export default function Navbar() {
               <div className="relative">
                 <button
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="flex items-center gap-2 p-1 rounded-md hover:bg-[hsl(var(--accent))] transition-colors"
+                  className="flex items-center gap-2 p-1 rounded-full hover:ring-2 hover:ring-[hsl(var(--primary)/0.3)] transition-all"
                   aria-label="User menu"
                 >
-                  {profile.avatar_url ? (
+                  {profile.avatar_url && !imgError ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={profile.avatar_url}
                       alt={profile.display_name}
-                      className="w-8 h-8 rounded-full object-cover"
+                      className="w-8 h-8 rounded-full object-cover border border-[hsl(var(--border))]"
+                      onError={() => setImgError(true)}
                     />
                   ) : (
                     <div className="w-8 h-8 rounded-full bg-[hsl(var(--primary)/0.2)] flex items-center justify-center text-xs font-semibold text-[hsl(var(--primary))]">
-                      {profile.display_name.slice(0, 2).toUpperCase()}
+                      {initials}
                     </div>
                   )}
                 </button>
 
                 {userMenuOpen && (
                   <div className="absolute right-0 top-full mt-2 w-52 bg-[hsl(var(--popover))] border border-[hsl(var(--border))] rounded-lg shadow-lg py-1 z-50 animate-fade-in">
-                    <div className="px-3 py-2 border-b border-[hsl(var(--border))]">
-                      <p className="font-medium text-sm truncate">{profile.display_name}</p>
-                      <p className="text-xs text-[hsl(var(--muted-foreground))] truncate">@{profile.username}</p>
+                    <div className="flex items-center gap-2.5 px-3 py-2 border-b border-[hsl(var(--border))]">
+                      {profile.avatar_url && !imgError ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={profile.avatar_url}
+                          alt={profile.display_name}
+                          className="w-9 h-9 rounded-full object-cover shrink-0"
+                          onError={() => setImgError(true)}
+                        />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-[hsl(var(--primary)/0.2)] flex items-center justify-center text-xs font-semibold text-[hsl(var(--primary))] shrink-0">
+                          {initials}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm truncate">{profile.display_name}</p>
+                        <p className="text-xs text-[hsl(var(--muted-foreground))] truncate">@{profile.username}</p>
+                      </div>
                     </div>
                     <Link
                       href={`/u/${profile.username}`}
@@ -276,9 +365,20 @@ export default function Navbar() {
               <Link
                 href={`/u/${profile.username}`}
                 onClick={() => setMobileOpen(false)}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))] rounded-md"
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))] rounded-md"
               >
-                <User size={15} /> Profile
+                {profile.avatar_url && !imgError ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={profile.avatar_url}
+                    alt={profile.display_name}
+                    className="w-5 h-5 rounded-full object-cover"
+                    onError={() => setImgError(true)}
+                  />
+                ) : (
+                  <User size={15} />
+                )}
+                <span>Profile</span>
               </Link>
               <Link
                 href="/settings"
