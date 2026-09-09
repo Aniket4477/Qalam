@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/lib/supabase/types'
-import { Loader2, Camera, Save } from 'lucide-react'
+import { Loader2, Camera, Save, Crop } from 'lucide-react'
+import ImageCropModal from '@/components/ui/ImageCropModal'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -22,6 +23,23 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+
+  // Image crop modal state
+  const [cropModal, setCropModal] = useState<{
+    isOpen: boolean
+    imageSrc: string | null
+    title: string
+    aspectRatio: 'square' | 'cover'
+    shape: 'round' | 'rect'
+    target: 'avatar' | 'cover'
+  }>({
+    isOpen: false,
+    imageSrc: null,
+    title: 'Adjust Photo',
+    aspectRatio: 'square',
+    shape: 'round',
+    target: 'avatar',
+  })
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -46,16 +64,68 @@ export default function SettingsPage() {
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      setAvatarFile(file)
-      setAvatarPreview(URL.createObjectURL(file))
+      const src = URL.createObjectURL(file)
+      setCropModal({
+        isOpen: true,
+        imageSrc: src,
+        title: 'Adjust Profile Photo',
+        aspectRatio: 'square',
+        shape: 'round',
+        target: 'avatar',
+      })
+      e.target.value = ''
     }
   }
 
   const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      setCoverFile(file)
-      setCoverPreview(URL.createObjectURL(file))
+      const src = URL.createObjectURL(file)
+      setCropModal({
+        isOpen: true,
+        imageSrc: src,
+        title: 'Adjust Cover Photo',
+        aspectRatio: 'cover',
+        shape: 'rect',
+        target: 'cover',
+      })
+      e.target.value = ''
+    }
+  }
+
+  const openAdjustPhoto = async (url: string, target: 'avatar' | 'cover') => {
+    try {
+      // Fetch as blob first to ensure clean canvas origin
+      const res = await fetch(url)
+      const blob = await res.blob()
+      const blobUrl = URL.createObjectURL(blob)
+      setCropModal({
+        isOpen: true,
+        imageSrc: blobUrl,
+        title: target === 'avatar' ? 'Adjust Profile Photo' : 'Adjust Cover Photo',
+        aspectRatio: target === 'avatar' ? 'square' : 'cover',
+        shape: target === 'avatar' ? 'round' : 'rect',
+        target,
+      })
+    } catch {
+      setCropModal({
+        isOpen: true,
+        imageSrc: url,
+        title: target === 'avatar' ? 'Adjust Profile Photo' : 'Adjust Cover Photo',
+        aspectRatio: target === 'avatar' ? 'square' : 'cover',
+        shape: target === 'avatar' ? 'round' : 'rect',
+        target,
+      })
+    }
+  }
+
+  const handleCropComplete = (croppedFile: File, previewUrl: string) => {
+    if (cropModal.target === 'avatar') {
+      setAvatarFile(croppedFile)
+      setAvatarPreview(previewUrl)
+    } else {
+      setCoverFile(croppedFile)
+      setCoverPreview(previewUrl)
     }
   }
 
@@ -159,46 +229,82 @@ export default function SettingsPage() {
       <form onSubmit={handleSave} className="space-y-6">
         {/* Avatar */}
         <div className="flex items-center gap-4">
-          <div className="relative">
+          <div className="relative shrink-0">
             {(avatarPreview ?? profile.avatar_url) ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={avatarPreview ?? profile.avatar_url!}
                 alt="Avatar"
-                className="w-20 h-20 rounded-full object-cover"
+                className="w-20 h-20 rounded-full object-cover border-2 border-[hsl(var(--border))]"
               />
             ) : (
-              <div className="w-20 h-20 rounded-full bg-[hsl(var(--primary)/0.15)] flex items-center justify-center text-xl font-bold text-[hsl(var(--primary))]">
+              <div className="w-20 h-20 rounded-full bg-[hsl(var(--primary)/0.15)] flex items-center justify-center text-xl font-bold text-[hsl(var(--primary))] border-2 border-[hsl(var(--border))]">
                 {displayName.slice(0, 2).toUpperCase() || '?'}
               </div>
             )}
             <label
               htmlFor="avatarInput"
-              className="absolute bottom-0 right-0 w-7 h-7 bg-[hsl(var(--primary))] rounded-full flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity"
+              className="absolute bottom-0 right-0 w-7 h-7 bg-[hsl(var(--primary))] rounded-full flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity shadow"
+              title="Upload new photo"
             >
               <Camera size={13} className="text-white" />
             </label>
             <input id="avatarInput" type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
           </div>
-          <div>
+
+          <div className="space-y-1.5">
             <p className="text-sm font-medium">Profile photo</p>
             <p className="text-xs text-[hsl(var(--muted-foreground))]">JPG, PNG or WebP, max 5MB</p>
+            {(avatarPreview ?? profile.avatar_url) && (
+              <button
+                type="button"
+                onClick={() => openAdjustPhoto(avatarPreview ?? profile.avatar_url!, 'avatar')}
+                className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--accent))] transition-colors"
+              >
+                <Crop size={12} />
+                <span>Adjust / Crop</span>
+              </button>
+            )}
           </div>
         </div>
 
         {/* Cover */}
         <div>
-          <label className="block text-sm font-medium mb-2">Cover image</label>
-          <div className="relative h-28 rounded-lg overflow-hidden bg-gradient-to-br from-[hsl(var(--accent))] to-[hsl(var(--primary)/0.2)]">
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-sm font-medium">Cover image</label>
+            {(coverPreview ?? profile.cover_url) && (
+              <button
+                type="button"
+                onClick={() => openAdjustPhoto(coverPreview ?? profile.cover_url!, 'cover')}
+                className="inline-flex items-center gap-1 text-xs text-[hsl(var(--primary))] hover:underline"
+              >
+                <Crop size={12} />
+                <span>Adjust crop</span>
+              </button>
+            )}
+          </div>
+
+          <div className="relative h-32 sm:h-36 rounded-xl overflow-hidden bg-gradient-to-br from-[hsl(var(--accent))] to-[hsl(var(--primary)/0.2)] border border-[hsl(var(--border))]">
             {(coverPreview ?? profile.cover_url) && (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={coverPreview ?? profile.cover_url!} alt="Cover" className="w-full h-full object-cover" />
             )}
-            <label htmlFor="coverInput" className="absolute inset-0 flex items-center justify-center cursor-pointer">
-              <div className="bg-black/30 backdrop-blur-sm text-white text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5">
-                <Camera size={13} /> Change cover
-              </div>
-            </label>
+            <div className="absolute inset-0 flex items-center justify-center gap-2.5">
+              <label htmlFor="coverInput" className="cursor-pointer">
+                <div className="bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white text-xs px-3.5 py-1.5 rounded-full flex items-center gap-1.5 transition-colors shadow">
+                  <Camera size={13} /> Change cover
+                </div>
+              </label>
+              {(coverPreview ?? profile.cover_url) && (
+                <button
+                  type="button"
+                  onClick={() => openAdjustPhoto(coverPreview ?? profile.cover_url!, 'cover')}
+                  className="bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white text-xs px-3.5 py-1.5 rounded-full flex items-center gap-1.5 transition-colors shadow"
+                >
+                  <Crop size={13} /> Adjust
+                </button>
+              )}
+            </div>
             <input id="coverInput" type="file" accept="image/*" className="hidden" onChange={handleCoverChange} />
           </div>
         </div>
@@ -273,6 +379,17 @@ export default function SettingsPage() {
           {saving ? 'Saving…' : 'Save changes'}
         </button>
       </form>
+
+      {/* Image Crop & Adjustment Modal */}
+      <ImageCropModal
+        isOpen={cropModal.isOpen}
+        imageSrc={cropModal.imageSrc}
+        title={cropModal.title}
+        aspectRatio={cropModal.aspectRatio}
+        shape={cropModal.shape}
+        onClose={() => setCropModal((prev) => ({ ...prev, isOpen: false }))}
+        onCropComplete={handleCropComplete}
+      />
     </div>
   )
 }
