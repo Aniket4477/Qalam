@@ -7,6 +7,8 @@ import {
   cn,
   formatGroupSystemMessage,
   parsePostShareMessage,
+  parseChatMediaMessage,
+  parseChatStickerMessage,
 } from '@/lib/utils'
 import { MessageCircle, SquarePen, Users, Plus } from 'lucide-react'
 import type { Profile, GroupWithMeta } from '@/lib/supabase/types'
@@ -250,6 +252,8 @@ export default function MessagesClient({
                             return <span className="italic">{sys.text}</span>
                           }
                           const shared = parsePostShareMessage(lastMsg.body)
+                          const media = parseChatMediaMessage(lastMsg.body)
+                          const sticker = parseChatStickerMessage(lastMsg.body)
                           return (
                             <>
                               <span className="font-semibold text-[hsl(var(--foreground))]">
@@ -258,7 +262,16 @@ export default function MessagesClient({
                                   : lastMsg.profiles?.display_name || 'Member'}
                                 :{' '}
                               </span>
-                              {shared ? (
+                              {media ? (
+                                <span className="italic">
+                                  {media.type === 'video' ? '🎥 Video' : '📷 Photo'}
+                                  {media.caption ? `: "${media.caption}"` : ''}
+                                </span>
+                              ) : sticker ? (
+                                <span className="italic">
+                                  {sticker.emoji || '🏷️'} Sticker ({sticker.name})
+                                </span>
+                              ) : shared ? (
                                 <span className="italic">
                                   Shared a poem{shared.title ? ` — "${shared.title}"` : ''}
                                 </span>
@@ -395,6 +408,14 @@ export default function MessagesClient({
                             return <span className="italic">{sys.text}</span>
                           }
                           const prefix = lastMsg.sender_id === currentUserId ? 'You: ' : ''
+                          const media = parseChatMediaMessage(lastMsg.body)
+                          if (media) {
+                            return `${prefix}${media.type === 'video' ? '🎥 Video' : '📷 Photo'}${media.caption ? `: "${media.caption}"` : ''}`
+                          }
+                          const sticker = parseChatStickerMessage(lastMsg.body)
+                          if (sticker) {
+                            return `${prefix}${sticker.emoji || '🏷️'} Sticker (${sticker.name})`
+                          }
                           const shared = parsePostShareMessage(lastMsg.body)
                           if (shared) {
                             return `${prefix}Shared a poem${shared.title ? ` — "${shared.title}"` : ''}`

@@ -11,12 +11,18 @@ import {
   formatBubbleTime,
   formatGroupSystemMessage,
   parsePostShareMessage,
+  parseChatMediaMessage,
+  parseChatStickerMessage,
+  type ChatMediaData,
   cn,
 } from '@/lib/utils'
-import { Send, ArrowLeft, Loader2, Users, Info, ArrowRight, Palette } from 'lucide-react'
+import { ArrowLeft, Users, Info, ArrowRight, Palette } from 'lucide-react'
 import GroupInfoModal from './GroupInfoModal'
 import { getChatTheme, getThemeDisplayName, CHAT_THEMES, type ChatThemeId } from '@/lib/chatThemes'
+import type { ChatSticker } from '@/lib/chatStickers'
 import ChatThemeModal from './ChatThemeModal'
+import ChatInputBar from './ChatInputBar'
+import MediaLightboxModal from './MediaLightboxModal'
 
 interface GroupMessageThreadProps {
   group: Group
@@ -34,11 +40,11 @@ export default function GroupMessageThread({
   const [currentGroup, setCurrentGroup] = useState<Group>(group)
   const [currentMembers, setCurrentMembers] = useState<GroupMember[]>(members)
   const [messages, setMessages] = useState<GroupMessage[]>(initialMessages)
-  const [newMessage, setNewMessage] = useState('')
   const [sending, setSending] = useState(false)
   const [infoOpen, setInfoOpen] = useState(false)
   const [themeId, setThemeId] = useState<ChatThemeId>('classic')
   const [themeModalOpen, setThemeModalOpen] = useState(false)
+  const [activeLightboxMedia, setActiveLightboxMedia] = useState<ChatMediaData | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   // Load saved theme or sync from latest message in history
@@ -178,13 +184,40 @@ export default function GroupMessageThread({
     }
   }, [group.id, supabase, sb])
 
-  const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const body = newMessage.trim()
-    if (!body || sending) return
-
+  const handleSendText = async (text: string) => {
+    if (!text.trim() || sending) return
     setSending(true)
-    setNewMessage('')
+
+    try {
+      const { data, error } = await sb
+        .from('group_messages')
+        .insert({
+          group_id: group.id,
+          sender_id: currentUserId,
+          body: text.trim(),
+        })
+        .select('*, profiles(*)')
+        .single()
+
+      if (error) throw error
+
+      if (data) {
+        setMessages((prev) => {
+          if (prev.find((m) => m.id === data.id)) return prev
+          return [...prev, data as GroupMessage]
+        })
+      }
+    } catch (err) {
+      console.error('Failed to send group message:', err)
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const handleSendMedia = async (mediaData: ChatMediaData) => {
+    if (sending) return
+    setSending(true)
+    const body = `[media]:${JSON.stringify(mediaData)}`
 
     try {
       const { data, error } = await sb
@@ -206,8 +239,47 @@ export default function GroupMessageThread({
         })
       }
     } catch (err) {
-      console.error('Failed to send group message:', err)
-      setNewMessage(body)
+      console.error('Failed to send group media:', err)
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const handleSendSticker = async (sticker: ChatSticker) => {
+    if (sending) return
+    setSending(true)
+    const body = `[sticker]:${JSON.stringify({
+      id: sticker.id,
+      name: sticker.name,
+      emoji: sticker.emoji,
+      badgeText: sticker.badgeText,
+      badgeSubtext: sticker.badgeSubtext,
+      bgGradient: sticker.bgGradient,
+      borderColor: sticker.borderColor,
+      textColor: sticker.textColor,
+    })}`
+
+    try {
+      const { data, error } = await sb
+        .from('group_messages')
+        .insert({
+          group_id: group.id,
+          sender_id: currentUserId,
+          body,
+        })
+        .select('*, profiles(*)')
+        .single()
+
+      if (error) throw error
+
+      if (data) {
+        setMessages((prev) => {
+          if (prev.find((m) => m.id === data.id)) return prev
+          return [...prev, data as GroupMessage]
+        })
+      }
+    } catch (err) {
+      console.error('Failed to send group sticker:', err)
     } finally {
       setSending(false)
     }
@@ -378,8 +450,52 @@ export default function GroupMessageThread({
                         </div>
                       )}
 
-                      {/* Message bubble */}
+                      {/* Message bubble or sticker */}
                       {(() => {
+                        const sticker = parseChatStickerMessage(msg.body)
+                        if (sticker) {
+                          return (
+                            <div className="flex flex-col items-center select-none py-1 group/sticker">
+                              <div
+                                className={cn(
+                                  'relative flex flex-col items-center justify-center p-3.5 sm:p-4 rounded-2xl border transition-all duration-200 text-center hover:scale-105 shadow-md bg-gradient-to-b cursor-default',
+                                  sticker.bgGradient || 'from-zinc-900 via-zinc-900 to-black',
+                                  sticker.borderColor || 'border-zinc-700/50'
+                                )}
+                              >
+                                <span className="text-3xl sm:text-4xl mb-1 filter drop-shadow-md">
+                                  {sticker.emoji}
+                                </span>
+                                {sticker.badgeText && (
+                                  <span
+                                    className={cn(
+                                      'text-xs sm:text-sm font-bold leading-tight',
+                                      sticker.textColor || 'text-amber-300'
+                                    )}
+                                    style={{ fontFamily: 'Lora, Georgia, serif' }}
+                                  >
+                                    {sticker.badgeText}
+                                  </span>
+                                )}
+                                {sticker.badgeSubtext && (
+                                  <span className="text-[10px] sm:text-[11px] text-zinc-400 font-medium leading-tight mt-0.5">
+                                    {sticker.badgeSubtext}
+                                  </span>
+                                )}
+                              </div>
+                              <p
+                                className={cn(
+                                  'text-[10px] mt-1 select-none',
+                                  isSelf ? currentTheme.timeOwnClass : currentTheme.timeOtherClass
+                                )}
+                              >
+                                {formatBubbleTime(msg.created_at)}
+                              </p>
+                            </div>
+                          )
+                        }
+
+                        const media = parseChatMediaMessage(msg.body)
                         const sharedPost = parsePostShareMessage(msg.body)
 
                         return (
@@ -391,7 +507,35 @@ export default function GroupMessageThread({
                                 : currentTheme.bubbleOtherClass
                             )}
                           >
-                            {sharedPost ? (
+                            {media ? (
+                              <div className="space-y-1.5">
+                                <div
+                                  className="relative rounded-xl overflow-hidden cursor-pointer group/media bg-black/40 border border-white/10"
+                                  onClick={() => setActiveLightboxMedia(media)}
+                                >
+                                  {media.type === 'video' ? (
+                                    <video
+                                      src={media.url}
+                                      className="max-h-72 w-full object-cover rounded-xl"
+                                      controls
+                                    />
+                                  ) : (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={media.url}
+                                      alt={media.caption || 'Shared photo'}
+                                      className="max-h-72 w-full object-cover rounded-xl transition-transform duration-200 group-hover/media:scale-102"
+                                      loading="lazy"
+                                    />
+                                  )}
+                                </div>
+                                {media.caption && (
+                                  <p className="whitespace-pre-wrap break-words leading-relaxed text-sm pt-0.5">
+                                    {media.caption}
+                                  </p>
+                                )}
+                              </div>
+                            ) : sharedPost ? (
                               <div>
                                 {sharedPost.note && (
                                   <p className="whitespace-pre-wrap break-words leading-relaxed mb-2">
@@ -475,35 +619,20 @@ export default function GroupMessageThread({
         <div ref={bottomRef} />
       </div>
 
-      {/* Input bar */}
-      <form
-        onSubmit={handleSend}
-        className="flex gap-2 p-3 border-t border-[hsl(var(--border))] bg-[hsl(var(--background)/0.9)] backdrop-blur-md"
-      >
-        <input
-          type="text"
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          placeholder={`Share with ${group.name}...`}
-          disabled={sending}
-          className="flex-1 px-4 py-2.5 bg-[hsl(var(--input)/0.5)] border border-[hsl(var(--border))] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))] placeholder:text-[hsl(var(--muted-foreground))]"
-        />
-        <button
-          type="submit"
-          disabled={sending || !newMessage.trim()}
-          className={cn(
-            'px-4 py-2.5 rounded-xl hover:opacity-90 disabled:opacity-50 transition-opacity shadow-xs flex items-center justify-center',
-            currentTheme.sendButtonClass || 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]'
-          )}
-          aria-label="Send message"
-        >
-          {sending ? (
-            <Loader2 size={17} className="animate-spin" />
-          ) : (
-            <Send size={17} />
-          )}
-        </button>
-      </form>
+      {/* Pill Chat Input Bar matching reference */}
+      <ChatInputBar
+        placeholder={`Share with ${group.name}…`}
+        sending={sending}
+        onSendText={handleSendText}
+        onSendMedia={handleSendMedia}
+        onSendSticker={handleSendSticker}
+      />
+
+      {/* Media Lightbox Viewer Modal */}
+      <MediaLightboxModal
+        media={activeLightboxMedia}
+        onClose={() => setActiveLightboxMedia(null)}
+      />
 
       {/* Circle Info Drawer / Modal */}
       {infoOpen && (

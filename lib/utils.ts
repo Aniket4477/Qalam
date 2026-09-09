@@ -386,3 +386,54 @@ export function parsePostShareMessage(body: string): SharedPostData | null {
     return null
   }
 }
+
+/**
+ * Shared media (photo / video) structure inside chat messages
+ */
+export interface ChatMediaData {
+  type: 'image' | 'video'
+  url: string
+  caption?: string
+  name?: string
+  size?: number
+}
+
+/**
+ * Parse a chat media payload [media]:{...}
+ */
+export function parseChatMediaMessage(body: string): ChatMediaData | null {
+  if (!body || !body.startsWith('[media]:')) return null
+  try {
+    const jsonStr = body.slice(8)
+    return JSON.parse(jsonStr) as ChatMediaData
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Chat sticker structure inside messages
+ */
+export interface ChatStickerData {
+  id: string
+  name: string
+  emoji?: string
+  badgeText?: string
+  badgeSubtext?: string
+  bgGradient?: string
+  borderColor?: string
+  textColor?: string
+}
+
+/**
+ * Parse a chat sticker payload [sticker]:{...}
+ */
+export function parseChatStickerMessage(body: string): ChatStickerData | null {
+  if (!body || !body.startsWith('[sticker]:')) return null
+  try {
+    const jsonStr = body.slice(10)
+    return JSON.parse(jsonStr) as ChatStickerData
+  } catch {
+    return null
+  }
+}

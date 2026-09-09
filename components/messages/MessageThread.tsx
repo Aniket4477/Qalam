@@ -11,11 +11,17 @@ import {
   formatBubbleTime,
   formatGroupSystemMessage,
   parsePostShareMessage,
+  parseChatMediaMessage,
+  parseChatStickerMessage,
+  type ChatMediaData,
   cn,
 } from '@/lib/utils'
-import { Send, ArrowLeft, Loader2, ArrowRight, Palette } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Palette } from 'lucide-react'
 import { getChatTheme, getThemeDisplayName, CHAT_THEMES, type ChatThemeId } from '@/lib/chatThemes'
+import type { ChatSticker } from '@/lib/chatStickers'
 import ChatThemeModal from './ChatThemeModal'
+import ChatInputBar from './ChatInputBar'
+import MediaLightboxModal from './MediaLightboxModal'
 
 interface MessageThreadProps {
   conversationId: string
@@ -31,10 +37,10 @@ export default function MessageThread({
   initialMessages,
 }: MessageThreadProps) {
   const [messages, setMessages] = useState<Message[]>(initialMessages)
-  const [newMessage, setNewMessage] = useState('')
   const [sending, setSending] = useState(false)
   const [themeId, setThemeId] = useState<ChatThemeId>('classic')
   const [themeModalOpen, setThemeModalOpen] = useState(false)
+  const [activeLightboxMedia, setActiveLightboxMedia] = useState<ChatMediaData | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -132,13 +138,29 @@ export default function MessageThread({
     return () => { supabase.removeChannel(channel) }
   }, [conversationId, supabase])
 
-  const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const body = newMessage.trim()
-    if (!body || sending) return
-
+  const handleSendText = async (text: string) => {
+    if (!text.trim() || sending) return
     setSending(true)
-    setNewMessage('')
+
+    const { data, error } = await sb
+      .from('messages')
+      .insert({ conversation_id: conversationId, sender_id: currentUserId, body: text.trim() })
+      .select('*')
+      .single()
+
+    if (!error && data) {
+      setMessages((prev) => {
+        if (prev.find((m) => m.id === data.id)) return prev
+        return [...prev, data as Message]
+      })
+    }
+    setSending(false)
+  }
+
+  const handleSendMedia = async (mediaData: ChatMediaData) => {
+    if (sending) return
+    setSending(true)
+    const body = `[media]:${JSON.stringify(mediaData)}`
 
     const { data, error } = await sb
       .from('messages')
@@ -146,9 +168,36 @@ export default function MessageThread({
       .select('*')
       .single()
 
-    if (error) {
-      setNewMessage(body)
-    } else if (data) {
+    if (!error && data) {
+      setMessages((prev) => {
+        if (prev.find((m) => m.id === data.id)) return prev
+        return [...prev, data as Message]
+      })
+    }
+    setSending(false)
+  }
+
+  const handleSendSticker = async (sticker: ChatSticker) => {
+    if (sending) return
+    setSending(true)
+    const body = `[sticker]:${JSON.stringify({
+      id: sticker.id,
+      name: sticker.name,
+      emoji: sticker.emoji,
+      badgeText: sticker.badgeText,
+      badgeSubtext: sticker.badgeSubtext,
+      bgGradient: sticker.bgGradient,
+      borderColor: sticker.borderColor,
+      textColor: sticker.textColor,
+    })}`
+
+    const { data, error } = await sb
+      .from('messages')
+      .insert({ conversation_id: conversationId, sender_id: currentUserId, body })
+      .select('*')
+      .single()
+
+    if (!error && data) {
       setMessages((prev) => {
         if (prev.find((m) => m.id === data.id)) return prev
         return [...prev, data as Message]
@@ -238,6 +287,50 @@ export default function MessageThread({
               ) : (
                 <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} animate-fade-in`}>
                   {(() => {
+                    const sticker = parseChatStickerMessage(msg.body)
+                    if (sticker) {
+                      return (
+                        <div className="flex flex-col items-center select-none py-1 group/sticker">
+                          <div
+                            className={cn(
+                              'relative flex flex-col items-center justify-center p-3.5 sm:p-4 rounded-2xl border transition-all duration-200 text-center hover:scale-105 shadow-md bg-gradient-to-b cursor-default',
+                              sticker.bgGradient || 'from-zinc-900 via-zinc-900 to-black',
+                              sticker.borderColor || 'border-zinc-700/50'
+                            )}
+                          >
+                            <span className="text-3xl sm:text-4xl mb-1 filter drop-shadow-md">
+                              {sticker.emoji}
+                            </span>
+                            {sticker.badgeText && (
+                              <span
+                                className={cn(
+                                  'text-xs sm:text-sm font-bold leading-tight',
+                                  sticker.textColor || 'text-amber-300'
+                                )}
+                                style={{ fontFamily: 'Lora, Georgia, serif' }}
+                              >
+                                {sticker.badgeText}
+                              </span>
+                            )}
+                            {sticker.badgeSubtext && (
+                              <span className="text-[10px] sm:text-[11px] text-zinc-400 font-medium leading-tight mt-0.5">
+                                {sticker.badgeSubtext}
+                              </span>
+                            )}
+                          </div>
+                          <p
+                            className={cn(
+                              'text-[10px] mt-1 select-none',
+                              isOwn ? currentTheme.timeOwnClass : currentTheme.timeOtherClass
+                            )}
+                          >
+                            {formatBubbleTime(msg.created_at)}
+                          </p>
+                        </div>
+                      )
+                    }
+
+                    const media = parseChatMediaMessage(msg.body)
                     const sharedPost = parsePostShareMessage(msg.body)
 
                     return (
@@ -247,111 +340,130 @@ export default function MessageThread({
                           isOwn ? currentTheme.bubbleOwnClass : currentTheme.bubbleOtherClass
                         )}
                       >
-                      {sharedPost ? (
-                        <div>
-                          {sharedPost.note && (
-                            <p className="whitespace-pre-wrap break-words leading-relaxed mb-2">
-                              {sharedPost.note}
-                            </p>
-                          )}
-                          <Link
-                            href={`/post/${sharedPost.id}`}
-                            className={cn(
-                              'block p-3 rounded-xl border transition-all text-left shadow-2xs group/card',
-                              isOwn
-                                ? 'bg-black/30 border-white/20 text-white hover:border-white/40'
-                                : 'bg-black/20 border-white/10 text-white hover:border-white/30'
-                            )}
-                          >
-                            <div className="flex items-center gap-2 mb-1.5">
-                              {sharedPost.author_avatar ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={sharedPost.author_avatar}
-                                  alt={sharedPost.author_name}
-                                  className="w-5 h-5 rounded-full object-cover border border-white/20"
+                        {media ? (
+                          <div className="space-y-1.5">
+                            <div
+                              className="relative rounded-xl overflow-hidden cursor-pointer group/media bg-black/40 border border-white/10"
+                              onClick={() => setActiveLightboxMedia(media)}
+                            >
+                              {media.type === 'video' ? (
+                                <video
+                                  src={media.url}
+                                  className="max-h-72 w-full object-cover rounded-xl"
+                                  controls
                                 />
                               ) : (
-                                <div className="w-5 h-5 rounded-full bg-white/20 text-white flex items-center justify-center text-[9px] font-bold">
-                                  {sharedPost.author_name.slice(0, 2).toUpperCase()}
-                                </div>
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={media.url}
+                                  alt={media.caption || 'Shared photo'}
+                                  className="max-h-72 w-full object-cover rounded-xl transition-transform duration-200 group-hover/media:scale-102"
+                                  loading="lazy"
+                                />
                               )}
-                              <div className="min-w-0">
-                                <p className="text-xs font-semibold leading-tight truncate text-white">
-                                  {sharedPost.author_name}
-                                </p>
-                                {sharedPost.author_username && (
-                                  <p className="text-[10px] text-white/70 font-mono leading-tight truncate">
-                                    @{sharedPost.author_username}
-                                  </p>
-                                )}
-                              </div>
                             </div>
-
-                            {sharedPost.title && (
-                              <p
-                                className="font-bold text-xs mb-1 text-white truncate"
-                                style={{ fontFamily: 'Lora, Georgia, serif' }}
-                              >
-                                {sharedPost.title}
+                            {media.caption && (
+                              <p className="whitespace-pre-wrap break-words leading-relaxed text-sm pt-0.5">
+                                {media.caption}
                               </p>
                             )}
+                          </div>
+                        ) : sharedPost ? (
+                          <div>
+                            {sharedPost.note && (
+                              <p className="whitespace-pre-wrap break-words leading-relaxed mb-2">
+                                {sharedPost.note}
+                              </p>
+                            )}
+                            <Link
+                              href={`/post/${sharedPost.id}`}
+                              className={cn(
+                                'block p-3 rounded-xl border transition-all text-left shadow-2xs group/card',
+                                isOwn
+                                  ? 'bg-black/30 border-white/20 text-white hover:border-white/40'
+                                  : 'bg-black/20 border-white/10 text-white hover:border-white/30'
+                              )}
+                            >
+                              <div className="flex items-center gap-2 mb-1.5">
+                                {sharedPost.author_avatar ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={sharedPost.author_avatar}
+                                    alt={sharedPost.author_name}
+                                    className="w-5 h-5 rounded-full object-cover border border-white/20"
+                                  />
+                                ) : (
+                                  <div className="w-5 h-5 rounded-full bg-white/20 text-white flex items-center justify-center text-[9px] font-bold">
+                                    {sharedPost.author_name.slice(0, 2).toUpperCase()}
+                                  </div>
+                                )}
+                                <div className="min-w-0">
+                                  <p className="text-xs font-semibold leading-tight truncate text-white">
+                                    {sharedPost.author_name}
+                                  </p>
+                                  {sharedPost.author_username && (
+                                    <p className="text-[10px] text-white/70 font-mono leading-tight truncate">
+                                      @{sharedPost.author_username}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
 
-                            <p className="text-xs text-white/80 line-clamp-3 italic whitespace-pre-line leading-relaxed">
-                              &ldquo;{sharedPost.preview}&rdquo;
-                            </p>
+                              {sharedPost.title && (
+                                <p
+                                  className="font-bold text-xs mb-1 text-white truncate"
+                                  style={{ fontFamily: 'Lora, Georgia, serif' }}
+                                >
+                                  {sharedPost.title}
+                                </p>
+                              )}
 
-                            <div className="mt-2 pt-1.5 border-t border-white/15 flex items-center justify-between text-[11px] font-medium text-white group-hover/card:translate-x-0.5 transition-transform">
-                              <span>Read poem</span>
-                              <ArrowRight size={12} />
-                            </div>
-                          </Link>
-                        </div>
-                      ) : (
-                        <p className="whitespace-pre-wrap break-words leading-relaxed">{msg.body}</p>
-                      )}
-                      <p
-                        className={cn(
-                          'text-[10px] mt-1 text-right select-none',
-                          isOwn ? currentTheme.timeOwnClass : currentTheme.timeOtherClass
+                              <p className="text-xs text-white/80 line-clamp-3 italic whitespace-pre-line leading-relaxed">
+                                &ldquo;{sharedPost.preview}&rdquo;
+                              </p>
+
+                              <div className="mt-2 pt-1.5 border-t border-white/15 flex items-center justify-between text-[11px] font-medium text-white group-hover/card:translate-x-0.5 transition-transform">
+                                <span>Read poem</span>
+                                <ArrowRight size={12} />
+                              </div>
+                            </Link>
+                          </div>
+                        ) : (
+                          <p className="whitespace-pre-wrap break-words leading-relaxed">{msg.body}</p>
                         )}
-                      >
-                        {formatBubbleTime(msg.created_at)}
-                      </p>
-                    </div>
-                  )
-                })()}
-              </div>
-            )}
-          </div>
-        )
-      })}
+                        <p
+                          className={cn(
+                            'text-[10px] mt-1 text-right select-none',
+                            isOwn ? currentTheme.timeOwnClass : currentTheme.timeOtherClass
+                          )}
+                        >
+                          {formatBubbleTime(msg.created_at)}
+                        </p>
+                      </div>
+                    )
+                  })()}
+                </div>
+              )}
+            </div>
+          )
+        })}
         <div ref={bottomRef} />
       </div>
 
-      <form onSubmit={handleSend} className="flex gap-2 px-4 py-3 border-t border-[hsl(var(--border))] bg-[hsl(var(--background))]">
-        <textarea
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          placeholder={`Message ${otherUser.display_name}…`}
-          rows={1}
-          className="flex-1 px-3 py-2 text-sm bg-[hsl(var(--input)/0.5)] border border-[hsl(var(--border))] rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))] placeholder:text-[hsl(var(--muted-foreground))]"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(e as unknown as React.FormEvent) }
-          }}
-        />
-        <button
-          type="submit"
-          disabled={!newMessage.trim() || sending}
-          className={cn(
-            'p-2.5 rounded-lg transition-opacity disabled:opacity-40',
-            currentTheme.sendButtonClass || 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]'
-          )}
-          aria-label="Send message"
-        >
-          {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-        </button>
-      </form>
+      {/* Instagram-inspired Pill Chat Input Bar */}
+      <ChatInputBar
+        placeholder={`Message ${otherUser.display_name}…`}
+        sending={sending}
+        onSendText={handleSendText}
+        onSendMedia={handleSendMedia}
+        onSendSticker={handleSendSticker}
+      />
+
+      {/* Media Lightbox Viewer Modal */}
+      <MediaLightboxModal
+        media={activeLightboxMedia}
+        onClose={() => setActiveLightboxMedia(null)}
+      />
 
       {/* Chat Theme Selector Modal */}
       <ChatThemeModal
