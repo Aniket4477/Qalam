@@ -187,3 +187,22 @@ export function getChatTheme(id?: string | null): ChatThemeConfig {
   }
   return CHAT_THEMES[DEFAULT_CHAT_THEME]
 }
+
+export function getThemeDisplayName(themeId?: string | null): string {
+  switch (themeId) {
+    case 'love':
+      return 'Love'
+    case 'nature':
+      return 'Nature'
+    case 'night':
+      return 'Night'
+    case 'sunset':
+      return 'Sunset'
+    case 'ocean':
+      return 'Ocean'
+    case 'classic':
+      return 'Classic'
+    default:
+      return themeId ? themeId.charAt(0).toUpperCase() + themeId.slice(1) : 'theme'
+  }
+}

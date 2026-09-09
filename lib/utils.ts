@@ -274,6 +274,20 @@ export function formatGroupSystemMessage(
           text: isSenderSelf ? `You left the group` : `${senderName} left the group`,
         }
       }
+      case 'theme': {
+        const themeId = args[0] || ''
+        const themeDisplayName =
+          args[1] ||
+          (themeId
+            ? themeId.charAt(0).toUpperCase() + themeId.slice(1)
+            : 'theme')
+        return {
+          isSystem: true,
+          text: isSenderSelf
+            ? `You changed the theme to ${themeDisplayName}`
+            : `${senderName} changed the theme to ${themeDisplayName}`,
+        }
+      }
       default:
         return { isSystem: true, text: content }
     }
@@ -281,6 +295,15 @@ export function formatGroupSystemMessage(
 
   // 2. Backward compatibility fallback for legacy messages
   const trimmed = body.trim()
+  if (trimmed.includes('changed the theme to ')) {
+    const after = trimmed.split('changed the theme to ')[1] || ''
+    return {
+      isSystem: true,
+      text: isSenderSelf
+        ? `You changed the theme to ${after}`
+        : `${senderName} changed the theme to ${after}`,
+    }
+  }
   if (trimmed.startsWith('Created the group') || trimmed.startsWith('Created the circle')) {
     return {
       isSystem: true,

@@ -385,6 +385,15 @@ export default function MessagesClient({
                       >
                         {(() => {
                           if (!lastMsg) return 'Start a conversation'
+                          const sys = formatGroupSystemMessage(
+                            lastMsg.body,
+                            lastMsg.sender_id,
+                            currentUserId,
+                            lastMsg.sender_id === currentUserId ? null : otherUser
+                          )
+                          if (sys.isSystem) {
+                            return <span className="italic">{sys.text}</span>
+                          }
                           const prefix = lastMsg.sender_id === currentUserId ? 'You: ' : ''
                           const shared = parsePostShareMessage(lastMsg.body)
                           if (shared) {

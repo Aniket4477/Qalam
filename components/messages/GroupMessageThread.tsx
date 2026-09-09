@@ -15,7 +15,7 @@ import {
 } from '@/lib/utils'
 import { Send, ArrowLeft, Loader2, Users, Info, ArrowRight, Palette } from 'lucide-react'
 import GroupInfoModal from './GroupInfoModal'
-import { getChatTheme, type ChatThemeId } from '@/lib/chatThemes'
+import { getChatTheme, getThemeDisplayName, CHAT_THEMES, type ChatThemeId } from '@/lib/chatThemes'
 import ChatThemeModal from './ChatThemeModal'
 
 interface GroupMessageThreadProps {
@@ -41,18 +41,64 @@ export default function GroupMessageThread({
   const [themeModalOpen, setThemeModalOpen] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
+  // Load saved theme or sync from latest message in history
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(`qalam_chat_theme_group_${group.id}`)
-      if (saved) setThemeId(saved as ChatThemeId)
-    } catch {}
-  }, [group.id])
+    let foundTheme: ChatThemeId | null = null
+    for (let i = initialMessages.length - 1; i >= 0; i--) {
+      if (initialMessages[i].body.startsWith('[system]:theme|')) {
+        const parts = initialMessages[i].body.slice(9).split('|')
+        const tId = parts[0] as ChatThemeId
+        if (tId && CHAT_THEMES[tId]) {
+          foundTheme = tId
+          break
+        }
+      }
+    }
 
-  const handleSelectTheme = (newThemeId: ChatThemeId) => {
+    if (foundTheme) {
+      setThemeId(foundTheme)
+      try {
+        localStorage.setItem(`qalam_chat_theme_group_${group.id}`, foundTheme)
+      } catch {}
+    } else {
+      try {
+        const saved = localStorage.getItem(`qalam_chat_theme_group_${group.id}`)
+        if (saved && CHAT_THEMES[saved as ChatThemeId]) setThemeId(saved as ChatThemeId)
+      } catch {}
+    }
+  }, [group.id, initialMessages])
+
+  const handleSelectTheme = async (newThemeId: ChatThemeId) => {
+    if (newThemeId === themeId) return
     setThemeId(newThemeId)
     try {
       localStorage.setItem(`qalam_chat_theme_group_${group.id}`, newThemeId)
     } catch {}
+
+    const themeDisplayName = getThemeDisplayName(newThemeId)
+    const body = `[system]:theme|${newThemeId}|${themeDisplayName}`
+
+    try {
+      const { data, error } = await sb
+        .from('group_messages')
+        .insert({
+          group_id: group.id,
+          sender_id: currentUserId,
+          body,
+        })
+        .select('*')
+        .single()
+
+      if (!error && data) {
+        setMessages((prev) => {
+          if (prev.find((m) => m.id === data.id)) return prev
+          const senderProfile = memberMap.current[currentUserId]
+          return [...prev, { ...data, profiles: senderProfile }]
+        })
+      }
+    } catch (err) {
+      console.error('Failed to post theme change message:', err)
+    }
   }
 
   const currentTheme = getChatTheme(themeId)
@@ -109,6 +155,18 @@ export default function GroupMessageThread({
                   m.id === newMsg.id ? { ...m, profiles: data as Profile } : m
                 )
               )
+            }
+          }
+
+          // If this is a theme update, automatically switch the chat theme in realtime!
+          if (newMsg.body.startsWith('[system]:theme|')) {
+            const parts = newMsg.body.slice(9).split('|')
+            const incomingThemeId = parts[0] as ChatThemeId
+            if (incomingThemeId && CHAT_THEMES[incomingThemeId]) {
+              setThemeId(incomingThemeId)
+              try {
+                localStorage.setItem(`qalam_chat_theme_group_${group.id}`, incomingThemeId)
+              } catch {}
             }
           }
         }

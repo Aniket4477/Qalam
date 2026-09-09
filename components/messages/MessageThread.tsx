@@ -9,11 +9,12 @@ import {
   formatChatDividerTime,
   shouldShowChatDivider,
   formatBubbleTime,
+  formatGroupSystemMessage,
   parsePostShareMessage,
   cn,
 } from '@/lib/utils'
 import { Send, ArrowLeft, Loader2, ArrowRight, Palette } from 'lucide-react'
-import { getChatTheme, type ChatThemeId } from '@/lib/chatThemes'
+import { getChatTheme, getThemeDisplayName, CHAT_THEMES, type ChatThemeId } from '@/lib/chatThemes'
 import ChatThemeModal from './ChatThemeModal'
 
 interface MessageThreadProps {
@@ -39,18 +40,59 @@ export default function MessageThread({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sb = supabase as any
 
+  // Load saved theme or sync from latest message in history
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(`qalam_chat_theme_${conversationId}`)
-      if (saved) setThemeId(saved as ChatThemeId)
-    } catch {}
-  }, [conversationId])
+    let foundTheme: ChatThemeId | null = null
+    for (let i = initialMessages.length - 1; i >= 0; i--) {
+      if (initialMessages[i].body.startsWith('[system]:theme|')) {
+        const parts = initialMessages[i].body.slice(9).split('|')
+        const tId = parts[0] as ChatThemeId
+        if (tId && CHAT_THEMES[tId]) {
+          foundTheme = tId
+          break
+        }
+      }
+    }
 
-  const handleSelectTheme = (newThemeId: ChatThemeId) => {
+    if (foundTheme) {
+      setThemeId(foundTheme)
+      try {
+        localStorage.setItem(`qalam_chat_theme_${conversationId}`, foundTheme)
+      } catch {}
+    } else {
+      try {
+        const saved = localStorage.getItem(`qalam_chat_theme_${conversationId}`)
+        if (saved && CHAT_THEMES[saved as ChatThemeId]) setThemeId(saved as ChatThemeId)
+      } catch {}
+    }
+  }, [conversationId, initialMessages])
+
+  const handleSelectTheme = async (newThemeId: ChatThemeId) => {
+    if (newThemeId === themeId) return
     setThemeId(newThemeId)
     try {
       localStorage.setItem(`qalam_chat_theme_${conversationId}`, newThemeId)
     } catch {}
+
+    const themeDisplayName = getThemeDisplayName(newThemeId)
+    const body = `[system]:theme|${newThemeId}|${themeDisplayName}`
+
+    try {
+      const { data, error } = await sb
+        .from('messages')
+        .insert({ conversation_id: conversationId, sender_id: currentUserId, body })
+        .select('*')
+        .single()
+
+      if (!error && data) {
+        setMessages((prev) => {
+          if (prev.find((m) => m.id === data.id)) return prev
+          return [...prev, data as Message]
+        })
+      }
+    } catch (err) {
+      console.error('Failed to post theme change message:', err)
+    }
   }
 
   const currentTheme = getChatTheme(themeId)
@@ -71,6 +113,18 @@ export default function MessageThread({
             if (prev.find((m) => m.id === newMsg.id)) return prev
             return [...prev, newMsg]
           })
+
+          // If this is a theme update, automatically switch the chat theme in realtime!
+          if (newMsg.body.startsWith('[system]:theme|')) {
+            const parts = newMsg.body.slice(9).split('|')
+            const incomingThemeId = parts[0] as ChatThemeId
+            if (incomingThemeId && CHAT_THEMES[incomingThemeId]) {
+              setThemeId(incomingThemeId)
+              try {
+                localStorage.setItem(`qalam_chat_theme_${conversationId}`, incomingThemeId)
+              } catch {}
+            }
+          }
         }
       )
       .subscribe()
@@ -153,6 +207,12 @@ export default function MessageThread({
           const prevMsg = idx > 0 ? messages[idx - 1] : undefined
           const showDivider = shouldShowChatDivider(msg.created_at, prevMsg?.created_at)
           const isOwn = msg.sender_id === currentUserId
+          const systemInfo = formatGroupSystemMessage(
+            msg.body,
+            msg.sender_id,
+            currentUserId,
+            isOwn ? null : otherUser
+          )
 
           return (
             <div key={msg.id} className="w-full flex flex-col">
@@ -168,17 +228,25 @@ export default function MessageThread({
                   </span>
                 </div>
               )}
-              <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} animate-fade-in`}>
-                {(() => {
-                  const sharedPost = parsePostShareMessage(msg.body)
 
-                  return (
-                    <div
-                      className={cn(
-                        'max-w-xs md:max-w-sm lg:max-w-md px-3.5 py-2.5 rounded-2xl text-sm transition-all duration-150',
-                        isOwn ? currentTheme.bubbleOwnClass : currentTheme.bubbleOtherClass
-                      )}
-                    >
+              {systemInfo.isSystem ? (
+                <div className="flex justify-center my-2 px-4 text-center select-none">
+                  <p className="text-xs text-[hsl(var(--muted-foreground))] leading-relaxed max-w-sm">
+                    {systemInfo.text}
+                  </p>
+                </div>
+              ) : (
+                <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} animate-fade-in`}>
+                  {(() => {
+                    const sharedPost = parsePostShareMessage(msg.body)
+
+                    return (
+                      <div
+                        className={cn(
+                          'max-w-xs md:max-w-sm lg:max-w-md px-3.5 py-2.5 rounded-2xl text-sm transition-all duration-150',
+                          isOwn ? currentTheme.bubbleOwnClass : currentTheme.bubbleOtherClass
+                        )}
+                      >
                       {sharedPost ? (
                         <div>
                           {sharedPost.note && (
@@ -254,9 +322,10 @@ export default function MessageThread({
                   )
                 })()}
               </div>
-            </div>
-          )
-        })}
+            )}
+          </div>
+        )
+      })}
         <div ref={bottomRef} />
       </div>
 
