@@ -12,7 +12,9 @@ import {
   parsePostShareMessage,
   cn,
 } from '@/lib/utils'
-import { Send, ArrowLeft, Loader2, ArrowRight } from 'lucide-react'
+import { Send, ArrowLeft, Loader2, ArrowRight, Palette } from 'lucide-react'
+import { getChatTheme, type ChatThemeId } from '@/lib/chatThemes'
+import ChatThemeModal from './ChatThemeModal'
 
 interface MessageThreadProps {
   conversationId: string
@@ -30,10 +32,28 @@ export default function MessageThread({
   const [messages, setMessages] = useState<Message[]>(initialMessages)
   const [newMessage, setNewMessage] = useState('')
   const [sending, setSending] = useState(false)
+  const [themeId, setThemeId] = useState<ChatThemeId>('classic')
+  const [themeModalOpen, setThemeModalOpen] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sb = supabase as any
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(`qalam_chat_theme_${conversationId}`)
+      if (saved) setThemeId(saved as ChatThemeId)
+    } catch {}
+  }, [conversationId])
+
+  const handleSelectTheme = (newThemeId: ChatThemeId) => {
+    setThemeId(newThemeId)
+    try {
+      localStorage.setItem(`qalam_chat_theme_${conversationId}`, newThemeId)
+    } catch {}
+  }
+
+  const currentTheme = getChatTheme(themeId)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -85,27 +105,45 @@ export default function MessageThread({
 
   return (
     <div className="flex flex-col h-[calc(100vh-3.5rem)]">
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-[hsl(var(--border))] bg-[hsl(var(--background)/0.9)] backdrop-blur-md">
-        <Link href="/messages" className="p-1.5 rounded-md text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--foreground))] transition-colors">
-          <ArrowLeft size={18} />
-        </Link>
-        <Link href={`/u/${otherUser.username}`} className="flex items-center gap-2">
-          {otherUser.avatar_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={otherUser.avatar_url} alt={otherUser.display_name} className="w-8 h-8 rounded-full object-cover" />
-          ) : (
-            <div className="w-8 h-8 rounded-full bg-[hsl(var(--primary)/0.15)] flex items-center justify-center text-xs font-semibold text-[hsl(var(--primary))]">
-              {otherUser.display_name.slice(0, 2).toUpperCase()}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[hsl(var(--border))] bg-[hsl(var(--background)/0.9)] backdrop-blur-md">
+        <div className="flex items-center gap-3 min-w-0">
+          <Link href="/messages" className="p-1.5 rounded-md text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--foreground))] transition-colors shrink-0">
+            <ArrowLeft size={18} />
+          </Link>
+          <Link href={`/u/${otherUser.username}`} className="flex items-center gap-2 min-w-0">
+            {otherUser.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={otherUser.avatar_url} alt={otherUser.display_name} className="w-8 h-8 rounded-full object-cover shrink-0" />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-[hsl(var(--primary)/0.15)] flex items-center justify-center text-xs font-semibold text-[hsl(var(--primary))] shrink-0">
+                {otherUser.display_name.slice(0, 2).toUpperCase()}
+              </div>
+            )}
+            <div className="min-w-0">
+              <p className="font-medium text-sm leading-none truncate">{otherUser.display_name}</p>
+              <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5 truncate">@{otherUser.username}</p>
             </div>
-          )}
-          <div>
-            <p className="font-medium text-sm leading-none">{otherUser.display_name}</p>
-            <p className="text-xs text-[hsl(var(--muted-foreground))]">@{otherUser.username}</p>
-          </div>
-        </Link>
+          </Link>
+        </div>
+
+        {/* Theme Picker Button */}
+        <button
+          type="button"
+          onClick={() => setThemeModalOpen(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--accent))] transition-all shadow-2xs shrink-0"
+          title="Change chat theme"
+          aria-label="Change chat theme"
+        >
+          <Palette size={15} />
+          <span className="text-xs font-medium hidden sm:inline">Theme</span>
+          <span className="text-xs">{currentTheme.icon}</span>
+        </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      <div
+        className="flex-1 overflow-y-auto px-4 py-4 space-y-3 transition-colors duration-300"
+        style={currentTheme.backgroundStyle}
+      >
         {messages.length === 0 && (
           <div className="text-center text-sm text-[hsl(var(--muted-foreground))] py-8">
             Start a conversation with {otherUser.display_name}
@@ -120,7 +158,12 @@ export default function MessageThread({
             <div key={msg.id} className="w-full flex flex-col">
               {showDivider && (
                 <div className="flex justify-center my-3.5 select-none">
-                  <span className="text-[11px] font-medium text-[hsl(var(--muted-foreground))] tracking-wide">
+                  <span
+                    className={cn(
+                      'text-[11px] font-medium tracking-wide px-3 py-1 rounded-full shadow-2xs backdrop-blur-xs transition-colors',
+                      currentTheme.dividerClass
+                    )}
+                  >
                     {formatChatDividerTime(msg.created_at)}
                   </span>
                 </div>
@@ -131,11 +174,10 @@ export default function MessageThread({
 
                   return (
                     <div
-                      className={`max-w-xs md:max-w-sm lg:max-w-md px-3.5 py-2.5 rounded-2xl text-sm shadow-xs ${
-                        isOwn
-                          ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-br-xs'
-                          : 'bg-[hsl(var(--muted)/0.7)] text-[hsl(var(--foreground))] border border-[hsl(var(--border)/0.5)] rounded-bl-xs'
-                      }`}
+                      className={cn(
+                        'max-w-xs md:max-w-sm lg:max-w-md px-3.5 py-2.5 rounded-2xl text-sm transition-all duration-150',
+                        isOwn ? currentTheme.bubbleOwnClass : currentTheme.bubbleOtherClass
+                      )}
                     >
                       {sharedPost ? (
                         <div>
@@ -149,8 +191,8 @@ export default function MessageThread({
                             className={cn(
                               'block p-3 rounded-xl border transition-all text-left shadow-2xs group/card',
                               isOwn
-                                ? 'bg-[hsl(var(--background))] border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:border-[hsl(var(--primary-foreground)/0.5)]'
-                                : 'bg-[hsl(var(--card))] border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:border-[hsl(var(--primary)/0.5)]'
+                                ? 'bg-black/30 border-white/20 text-white hover:border-white/40'
+                                : 'bg-black/20 border-white/10 text-white hover:border-white/30'
                             )}
                           >
                             <div className="flex items-center gap-2 mb-1.5">
@@ -159,19 +201,19 @@ export default function MessageThread({
                                 <img
                                   src={sharedPost.author_avatar}
                                   alt={sharedPost.author_name}
-                                  className="w-5 h-5 rounded-full object-cover border border-[hsl(var(--border))]"
+                                  className="w-5 h-5 rounded-full object-cover border border-white/20"
                                 />
                               ) : (
-                                <div className="w-5 h-5 rounded-full bg-[hsl(var(--primary)/0.15)] text-[hsl(var(--primary))] flex items-center justify-center text-[9px] font-bold">
+                                <div className="w-5 h-5 rounded-full bg-white/20 text-white flex items-center justify-center text-[9px] font-bold">
                                   {sharedPost.author_name.slice(0, 2).toUpperCase()}
                                 </div>
                               )}
                               <div className="min-w-0">
-                                <p className="text-xs font-semibold leading-tight truncate text-[hsl(var(--foreground))]">
+                                <p className="text-xs font-semibold leading-tight truncate text-white">
                                   {sharedPost.author_name}
                                 </p>
                                 {sharedPost.author_username && (
-                                  <p className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono leading-tight truncate">
+                                  <p className="text-[10px] text-white/70 font-mono leading-tight truncate">
                                     @{sharedPost.author_username}
                                   </p>
                                 )}
@@ -180,18 +222,18 @@ export default function MessageThread({
 
                             {sharedPost.title && (
                               <p
-                                className="font-bold text-xs mb-1 text-[hsl(var(--foreground))] truncate"
+                                className="font-bold text-xs mb-1 text-white truncate"
                                 style={{ fontFamily: 'Lora, Georgia, serif' }}
                               >
                                 {sharedPost.title}
                               </p>
                             )}
 
-                            <p className="text-xs text-[hsl(var(--muted-foreground))] line-clamp-3 italic whitespace-pre-line leading-relaxed">
+                            <p className="text-xs text-white/80 line-clamp-3 italic whitespace-pre-line leading-relaxed">
                               &ldquo;{sharedPost.preview}&rdquo;
                             </p>
 
-                            <div className="mt-2 pt-1.5 border-t border-[hsl(var(--border)/0.5)] flex items-center justify-between text-[11px] font-medium text-[hsl(var(--primary))] group-hover/card:translate-x-0.5 transition-transform">
+                            <div className="mt-2 pt-1.5 border-t border-white/15 flex items-center justify-between text-[11px] font-medium text-white group-hover/card:translate-x-0.5 transition-transform">
                               <span>Read poem</span>
                               <ArrowRight size={12} />
                             </div>
@@ -201,11 +243,10 @@ export default function MessageThread({
                         <p className="whitespace-pre-wrap break-words leading-relaxed">{msg.body}</p>
                       )}
                       <p
-                        className={`text-[10px] mt-1 text-right select-none ${
-                          isOwn
-                            ? 'text-[hsl(var(--primary-foreground)/0.75)]'
-                            : 'text-[hsl(var(--muted-foreground))]'
-                        }`}
+                        className={cn(
+                          'text-[10px] mt-1 text-right select-none',
+                          isOwn ? currentTheme.timeOwnClass : currentTheme.timeOtherClass
+                        )}
                       >
                         {formatBubbleTime(msg.created_at)}
                       </p>
@@ -233,12 +274,23 @@ export default function MessageThread({
         <button
           type="submit"
           disabled={!newMessage.trim() || sending}
-          className="p-2.5 bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-lg hover:opacity-90 transition-opacity disabled:opacity-40"
+          className={cn(
+            'p-2.5 rounded-lg transition-opacity disabled:opacity-40',
+            currentTheme.sendButtonClass || 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]'
+          )}
           aria-label="Send message"
         >
           {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
         </button>
       </form>
+
+      {/* Chat Theme Selector Modal */}
+      <ChatThemeModal
+        isOpen={themeModalOpen}
+        currentThemeId={themeId}
+        onSelectTheme={handleSelectTheme}
+        onClose={() => setThemeModalOpen(false)}
+      />
     </div>
   )
 }
