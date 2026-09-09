@@ -222,18 +222,18 @@ export default function Navbar({
         {/* Logo */}
         <Link
           href="/"
-          className="flex items-center gap-2 shrink-0 group select-none"
+          className="flex items-center gap-2.5 shrink-0 group select-none"
           aria-label="Qalam Home"
         >
           <span
-            className="font-serif text-xl font-bold text-[hsl(var(--foreground))] tracking-tight leading-none group-hover:text-[hsl(var(--primary))] transition-colors"
+            className="font-serif text-2xl md:text-[26px] font-bold text-[hsl(var(--foreground))] tracking-tight leading-none group-hover:text-[hsl(var(--primary))] transition-colors"
             style={{ fontFamily: 'Lora, Georgia, serif' }}
           >
             Qalam
           </span>
           <span
-            className="text-2xl font-bold text-[hsl(var(--primary))] tracking-wide leading-none transition-transform group-hover:scale-105 font-hindi"
-            style={{ fontFamily: "'Yatra One', 'Amita', 'Rozha One', cursive, serif" }}
+            className="text-xs md:text-sm font-bold text-[hsl(var(--primary))] tracking-wider font-hindi px-2 py-0.5 rounded-md bg-[hsl(var(--primary)/0.08)] border border-[hsl(var(--primary)/0.2)] shadow-2xs transition-all group-hover:bg-[hsl(var(--primary)/0.14)] group-hover:border-[hsl(var(--primary)/0.35)] group-hover:scale-105"
+            style={{ fontFamily: "'Rozha One', 'Yatra One', 'Amita', serif" }}
           >
             क़लम
           </span>
