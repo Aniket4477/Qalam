@@ -3,7 +3,7 @@ import PostCard, { PostCardSkeleton } from '@/components/posts/PostCard'
 import HomeFeedTabs from '@/components/feed/HomeFeedTabs'
 import type { PostWithAuthor } from '@/lib/supabase/types'
 import Link from 'next/link'
-import { PenLine, Feather } from 'lucide-react'
+import { PenLine, Feather, Users, Compass } from 'lucide-react'
 import { Suspense } from 'react'
 import type { Metadata } from 'next'
 
@@ -21,9 +21,80 @@ async function FeedContent({ tab }: { tab: string }) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sb = supabase as any
 
+  const { data: { user } } = await supabase.auth.getUser()
+
   let query = sb.from('posts').select('*, profiles(*)').eq('status', 'published')
 
-  if (tab === 'trending') {
+  if (tab === 'following') {
+    if (!user) {
+      return (
+        <div className="text-center py-16 border border-dashed border-[hsl(var(--border))] rounded-2xl p-8 bg-[hsl(var(--card)/0.4)] animate-fade-in">
+          <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-[hsl(var(--primary)/0.12)] flex items-center justify-center text-[hsl(var(--primary))]">
+            <Users size={28} />
+          </div>
+          <h3 className="text-xl font-semibold mb-2" style={{ fontFamily: 'Lora, Georgia, serif' }}>
+            Follow your favorite poets
+          </h3>
+          <p className="text-[hsl(var(--muted-foreground))] text-sm max-w-sm mx-auto mb-6">
+            Log in to see a personalized stream of poetry, ghazals, and shayari from the authors you follow.
+          </p>
+          <div className="flex items-center justify-center gap-3">
+            <Link
+              href="/login?redirectTo=/?tab=following"
+              className="px-5 py-2 bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-xl text-sm font-medium hover:opacity-90 transition-opacity shadow-sm"
+            >
+              Log in
+            </Link>
+            <Link
+              href="/explore"
+              className="px-5 py-2 border border-[hsl(var(--border))] hover:bg-[hsl(var(--accent))] text-[hsl(var(--foreground))] rounded-xl text-sm font-medium transition-colors"
+            >
+              Explore poets
+            </Link>
+          </div>
+        </div>
+      )
+    }
+
+    const { data: followsData, error: followsError } = await sb
+      .from('follows')
+      .select('following_id')
+      .eq('follower_id', user.id)
+
+    if (followsError) {
+      return (
+        <div className="text-center py-16 text-[hsl(var(--muted-foreground))]">
+          <p>Failed to load followed authors. Please try refreshing.</p>
+        </div>
+      )
+    }
+
+    const followingIds = (followsData ?? []).map((f: { following_id: string }) => f.following_id)
+
+    if (followingIds.length === 0) {
+      return (
+        <div className="text-center py-16 border border-dashed border-[hsl(var(--border))] rounded-2xl p-8 bg-[hsl(var(--card)/0.4)] animate-fade-in">
+          <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-[hsl(var(--primary)/0.12)] flex items-center justify-center text-[hsl(var(--primary))]">
+            <Users size={28} />
+          </div>
+          <h3 className="text-xl font-semibold mb-2" style={{ fontFamily: 'Lora, Georgia, serif' }}>
+            You aren&apos;t following anyone yet
+          </h3>
+          <p className="text-[hsl(var(--muted-foreground))] text-sm max-w-sm mx-auto mb-6">
+            Discover poets whose words touch your heart and follow them to see their latest poems here.
+          </p>
+          <Link
+            href="/explore"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-xl text-sm font-medium hover:opacity-90 transition-opacity shadow-sm"
+          >
+            <Compass size={16} /> Discover poets
+          </Link>
+        </div>
+      )
+    }
+
+    query = query.in('author_id', followingIds)
+  } else if (tab === 'trending') {
     const sevenDaysAgo = new Date()
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
     query = query.gte('created_at', sevenDaysAgo.toISOString())
@@ -42,6 +113,26 @@ async function FeedContent({ tab }: { tab: string }) {
   }
 
   if (!posts || posts.length === 0) {
+    if (tab === 'following') {
+      return (
+        <div className="text-center py-16 border border-dashed border-[hsl(var(--border))] rounded-2xl p-8 bg-[hsl(var(--card)/0.4)] animate-fade-in">
+          <Feather size={36} className="mx-auto text-[hsl(var(--muted-foreground))] mb-3 opacity-50" />
+          <h3 className="text-lg font-semibold mb-2" style={{ fontFamily: 'Lora, Georgia, serif' }}>
+            No poems yet
+          </h3>
+          <p className="text-[hsl(var(--muted-foreground))] text-sm max-w-sm mx-auto mb-6">
+            The poets you follow haven&apos;t published any poems yet. Check back soon or discover more writers!
+          </p>
+          <Link
+            href="/explore"
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
+          >
+            <Compass size={15} /> Discover more poets
+          </Link>
+        </div>
+      )
+    }
+
     return (
       <div className="text-center py-20">
         <Feather size={40} className="mx-auto text-[hsl(var(--muted-foreground))] mb-4 opacity-40" />
@@ -62,8 +153,6 @@ async function FeedContent({ tab }: { tab: string }) {
       </div>
     )
   }
-
-  const { data: { user } } = await supabase.auth.getUser()
 
   const postIds = (posts as PostWithAuthor[]).map((p) => p.id)
 
