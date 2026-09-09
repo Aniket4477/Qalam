@@ -178,12 +178,12 @@ export function formatGroupSystemMessage(
 
     switch (action) {
       case 'create': {
-        const groupName = args[0] || 'the circle'
+        const groupName = args[0] || 'the group'
         return {
           isSystem: true,
           text: isSenderSelf
-            ? `You created the circle "${groupName}"`
-            : `${senderName} created the circle "${groupName}"`,
+            ? `You created the group "${groupName}"`
+            : `${senderName} created the group "${groupName}"`,
         }
       }
       case 'name': {
@@ -191,16 +191,16 @@ export function formatGroupSystemMessage(
         return {
           isSystem: true,
           text: isSenderSelf
-            ? `You changed the circle name to "${newName}"`
-            : `${senderName} changed the circle name to "${newName}"`,
+            ? `You changed the group name to "${newName}"`
+            : `${senderName} changed the group name to "${newName}"`,
         }
       }
       case 'photo': {
         return {
           isSystem: true,
           text: isSenderSelf
-            ? `You changed the circle photo`
-            : `${senderName} changed the circle photo`,
+            ? `You changed the group photo`
+            : `${senderName} changed the group photo`,
         }
       }
       case 'name_and_photo': {
@@ -208,16 +208,16 @@ export function formatGroupSystemMessage(
         return {
           isSystem: true,
           text: isSenderSelf
-            ? `You changed the circle photo and name to "${newName}"`
-            : `${senderName} changed the circle photo and name to "${newName}"`,
+            ? `You changed the group photo and name to "${newName}"`
+            : `${senderName} changed the group photo and name to "${newName}"`,
         }
       }
       case 'desc': {
         return {
           isSystem: true,
           text: isSenderSelf
-            ? `You updated the circle description`
-            : `${senderName} updated the circle description`,
+            ? `You updated the group description`
+            : `${senderName} updated the group description`,
         }
       }
       case 'admin_promote': {
@@ -226,7 +226,7 @@ export function formatGroupSystemMessage(
         return {
           isSystem: true,
           text: isSenderSelf
-            ? `You made ${targetName} a circle admin`
+            ? `You made ${targetName} a group admin`
             : isTargetSelf
             ? `${senderName} made you an admin`
             : `${senderName} made ${targetName} an admin`,
@@ -250,10 +250,10 @@ export function formatGroupSystemMessage(
         return {
           isSystem: true,
           text: isSenderSelf
-            ? `You added ${targetName} to the circle`
+            ? `You added ${targetName} to the group`
             : isTargetSelf
-            ? `${senderName} added you to the circle`
-            : `${senderName} added ${targetName} to the circle`,
+            ? `${senderName} added you to the group`
+            : `${senderName} added ${targetName} to the group`,
         }
       }
       case 'member_remove': {
@@ -262,16 +262,16 @@ export function formatGroupSystemMessage(
         return {
           isSystem: true,
           text: isSenderSelf
-            ? `You removed ${targetName} from the circle`
+            ? `You removed ${targetName} from the group`
             : isTargetSelf
-            ? `${senderName} removed you from the circle`
-            : `${senderName} removed ${targetName} from the circle`,
+            ? `${senderName} removed you from the group`
+            : `${senderName} removed ${targetName} from the group`,
         }
       }
       case 'member_leave': {
         return {
           isSystem: true,
-          text: isSenderSelf ? `You left the circle` : `${senderName} left the circle`,
+          text: isSenderSelf ? `You left the group` : `${senderName} left the group`,
         }
       }
       default:
@@ -289,13 +289,16 @@ export function formatGroupSystemMessage(
         : `${senderName} ${trimmed.charAt(0).toLowerCase() + trimmed.slice(1)}`,
     }
   }
-  if (trimmed.startsWith('updated the circle info')) {
+  if (trimmed.startsWith('updated the group info') || trimmed.startsWith('updated the circle info')) {
     return {
       isSystem: true,
       text: isSenderSelf ? `You ${trimmed}` : `${senderName} ${trimmed}`,
     }
   }
-  if (trimmed.includes('made ') && trimmed.endsWith('a circle admin')) {
+  if (
+    trimmed.includes('made ') &&
+    (trimmed.endsWith('a group admin') || trimmed.endsWith('a circle admin'))
+  ) {
     return {
       isSystem: true,
       text: isSenderSelf ? `You ${trimmed}` : `${senderName} ${trimmed}`,
@@ -307,22 +310,28 @@ export function formatGroupSystemMessage(
       text: isSenderSelf ? `You ${trimmed}` : `${senderName} ${trimmed}`,
     }
   }
-  if (trimmed.includes('removed ') && trimmed.endsWith('from the circle')) {
+  if (
+    trimmed.includes('removed ') &&
+    (trimmed.endsWith('from the group') || trimmed.endsWith('from the circle'))
+  ) {
     return {
       isSystem: true,
       text: isSenderSelf ? `You ${trimmed}` : `${senderName} ${trimmed}`,
     }
   }
-  if (trimmed.includes('added ') && trimmed.endsWith('to the circle')) {
+  if (
+    trimmed.includes('added ') &&
+    (trimmed.endsWith('to the group') || trimmed.endsWith('to the circle'))
+  ) {
     return {
       isSystem: true,
       text: isSenderSelf ? `You ${trimmed}` : `${senderName} ${trimmed}`,
     }
   }
-  if (trimmed === 'left the circle') {
+  if (trimmed === 'left the group' || trimmed === 'left the circle') {
     return {
       isSystem: true,
-      text: isSenderSelf ? `You left the circle` : `${senderName} left the circle`,
+      text: isSenderSelf ? `You left the group` : `${senderName} left the group`,
     }
   }
 

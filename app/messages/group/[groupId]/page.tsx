@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .single()
 
   return {
-    title: group ? `${group.name} — Poetry Circle` : 'Group Chat — Qalam',
+    title: group ? `${group.name} — Group Chat` : 'Group Chat — Qalam',
     description: group?.description ?? 'Group discussion on Qalam',
   }
 }

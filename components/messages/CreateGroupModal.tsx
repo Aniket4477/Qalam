@@ -175,7 +175,7 @@ export default function CreateGroupModal({
                 className="text-lg font-bold text-[hsl(var(--foreground))]"
                 style={{ fontFamily: 'Lora, Georgia, serif' }}
               >
-                Create Poetry Circle
+                Create Poetry Group
               </h2>
               <p className="text-xs text-[hsl(var(--muted-foreground))]">
                 Start a group chat for poetry, shayari, or literary discussions
@@ -250,7 +250,7 @@ export default function CreateGroupModal({
               </button>
             ) : (
               <span className="text-[11px] text-[hsl(var(--muted-foreground))]">
-                Optional Circle Photo
+                Optional Group Photo
               </span>
             )}
           </div>
@@ -264,7 +264,7 @@ export default function CreateGroupModal({
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., Urdu Shayari Circle, Ghazal Lovers"
+              placeholder="e.g., Urdu Shayari Group, Ghazal Lovers"
               required
               autoFocus
               className="w-full px-3.5 py-2.5 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--input)/0.5)] text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
@@ -280,7 +280,7 @@ export default function CreateGroupModal({
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="What is this circle about?"
+              placeholder="What is this group about?"
               className="w-full px-3.5 py-2.5 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--input)/0.5)] text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
             />
           </div>
@@ -409,7 +409,7 @@ export default function CreateGroupModal({
               {creating ? (
                 <>
                   <Loader2 size={14} className="animate-spin" />
-                  <span>Creating Circle...</span>
+                  <span>Creating Group...</span>
                 </>
               ) : (
                 <>

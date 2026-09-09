@@ -308,7 +308,7 @@ export default function GroupInfoModal({
 
   // Leave Group
   const handleLeaveGroup = async () => {
-    if (!confirm('Are you sure you want to leave this Poetry Circle?')) return
+    if (!confirm('Are you sure you want to leave this Poetry Group?')) return
 
     setLeaving(true)
     try {
@@ -329,7 +329,7 @@ export default function GroupInfoModal({
       router.refresh()
     } catch (err) {
       console.error('Error leaving group:', err)
-      alert('Could not leave circle.')
+      alert('Could not leave group.')
     } finally {
       setLeaving(false)
     }
@@ -347,7 +347,7 @@ export default function GroupInfoModal({
         {/* Modal Top Close */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-[hsl(var(--border))] bg-[hsl(var(--muted)/0.3)]">
           <span className="text-xs font-semibold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
-            {isEditing ? 'Edit Circle Details' : 'Circle Info'}
+            {isEditing ? 'Edit Group Details' : 'Group Info'}
           </span>
           <button
             onClick={onClose}
@@ -400,14 +400,14 @@ export default function GroupInfoModal({
                 onClick={() => fileInputRef.current?.click()}
                 className="text-xs text-[hsl(var(--primary))] hover:underline font-medium"
               >
-                Change Circle Photo
+                Change Group Photo
               </button>
             </div>
 
             {/* Name */}
             <div>
               <label className="block text-xs font-semibold text-[hsl(var(--muted-foreground))] uppercase mb-1">
-                Circle Name
+                Group Name
               </label>
               <input
                 type="text"
@@ -427,7 +427,7 @@ export default function GroupInfoModal({
                 value={editDescription}
                 onChange={(e) => setEditDescription(e.target.value)}
                 rows={3}
-                placeholder="What is this poetry circle about?"
+                placeholder="What is this poetry group about?"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--input)/0.5)] text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
               />
             </div>
@@ -498,7 +498,7 @@ export default function GroupInfoModal({
                   <button
                     onClick={() => setIsEditing(true)}
                     className="p-1 rounded-md text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] hover:bg-[hsl(var(--accent))] transition-colors"
-                    title="Edit circle details"
+                    title="Edit group details"
                   >
                     <Edit3 size={15} />
                   </button>
@@ -677,7 +677,7 @@ export default function GroupInfoModal({
                                 onClick={() => handleRemoveMember(m)}
                                 disabled={removeLoadingId === m.user_id}
                                 className="p-1.5 rounded-lg border border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
-                                title="Remove from circle"
+                                title="Remove from group"
                               >
                                 {removeLoadingId === m.user_id ? (
                                   <Loader2 size={13} className="animate-spin" />
@@ -707,7 +707,7 @@ export default function GroupInfoModal({
                 ) : (
                   <LogOut size={13} />
                 )}
-                <span>Leave Circle</span>
+                <span>Leave Group</span>
               </button>
 
               <button

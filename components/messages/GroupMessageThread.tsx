@@ -170,7 +170,7 @@ export default function GroupMessageThread({
                 {currentGroup.name}
               </h1>
               <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5 truncate">
-                {currentMembers.length} member{currentMembers.length !== 1 ? 's' : ''} • Tap for circle info
+                {currentMembers.length} member{currentMembers.length !== 1 ? 's' : ''} • Tap for group info
               </p>
             </div>
           </button>
@@ -179,8 +179,8 @@ export default function GroupMessageThread({
         <button
           onClick={() => setInfoOpen(true)}
           className="p-2 rounded-lg border border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--accent))] transition-colors"
-          title="Circle Info"
-          aria-label="Circle details"
+          title="Group Info"
+          aria-label="Group details"
         >
           <Info size={17} />
         </button>
@@ -197,7 +197,7 @@ export default function GroupMessageThread({
               Welcome to {group.name}!
             </p>
             <p className="text-xs max-w-xs mt-1">
-              Send the first poem, shayari, or greeting to start the conversation with the circle.
+              Send the first poem, shayari, or greeting to start the conversation with the group.
             </p>
           </div>
         ) : (

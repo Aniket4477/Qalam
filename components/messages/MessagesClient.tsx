@@ -30,7 +30,7 @@ interface MessagesClientProps {
   unreadCountMap?: Record<string, number>
 }
 
-type FilterTab = 'all' | 'direct' | 'groups' | 'unread'
+type FilterTab = 'all' | 'groups' | 'unread'
 
 export default function MessagesClient({
   currentUserId,
@@ -91,6 +91,7 @@ export default function MessagesClient({
       {hasAnyChats && (
         <div className="flex items-center gap-1.5 mb-5 p-1 bg-[hsl(var(--muted)/0.6)] rounded-xl text-xs font-medium w-fit overflow-x-auto">
           <button
+            type="button"
             onClick={() => setFilter('all')}
             className={cn(
               'px-3 py-1.5 rounded-lg transition-colors',
@@ -103,18 +104,7 @@ export default function MessagesClient({
           </button>
 
           <button
-            onClick={() => setFilter('direct')}
-            className={cn(
-              'px-3 py-1.5 rounded-lg transition-colors',
-              filter === 'direct'
-                ? 'bg-[hsl(var(--background))] text-[hsl(var(--foreground))] shadow-xs font-semibold'
-                : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
-            )}
-          >
-            Direct ({conversations.length})
-          </button>
-
-          <button
+            type="button"
             onClick={() => setFilter('groups')}
             className={cn(
               'px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1',
@@ -124,22 +114,21 @@ export default function MessagesClient({
             )}
           >
             <Users size={12} />
-            <span>Circles ({groups.length})</span>
+            <span>Groups ({groups.length})</span>
           </button>
 
-          {totalUnreadConversations > 0 && (
-            <button
-              onClick={() => setFilter('unread')}
-              className={cn(
-                'px-3 py-1.5 rounded-lg transition-colors',
-                filter === 'unread'
-                  ? 'bg-[hsl(var(--background))] text-[hsl(var(--foreground))] shadow-xs font-semibold'
-                  : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
-              )}
-            >
-              Unread ({totalUnreadConversations})
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setFilter('unread')}
+            className={cn(
+              'px-3 py-1.5 rounded-lg transition-colors',
+              filter === 'unread'
+                ? 'bg-[hsl(var(--background))] text-[hsl(var(--foreground))] shadow-xs font-semibold'
+                : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
+            )}
+          >
+            Unread ({totalUnreadConversations})
+          </button>
         </div>
       )}
 
@@ -157,7 +146,7 @@ export default function MessagesClient({
             No messages yet
           </h2>
           <p className="text-xs sm:text-sm text-[hsl(var(--muted-foreground))] mb-6 max-w-xs mx-auto">
-            Connect with fellow poets in 1-on-1 chats or create a poetry circle group.
+            Connect with fellow poets in 1-on-1 chats or create a poetry group.
           </p>
           <div className="flex items-center justify-center gap-3 flex-wrap">
             <button
@@ -165,7 +154,7 @@ export default function MessagesClient({
               className="inline-flex items-center gap-1.5 px-4 py-2 border border-[hsl(var(--border))] rounded-xl text-xs sm:text-sm font-medium hover:bg-[hsl(var(--accent))] transition-colors"
             >
               <Users size={15} />
-              <span>Create Circle</span>
+              <span>Create Group</span>
             </button>
             <Link
               href="/messages/new"
@@ -181,7 +170,24 @@ export default function MessagesClient({
       {/* Chat List */}
       {hasAnyChats && (
         <div className="space-y-2.5">
-          {/* 1. Groups (Poetry Circles) */}
+          {/* Empty state for Groups tab when no groups exist */}
+          {filter === 'groups' && groups.length === 0 && (
+            <div className="text-center py-12 text-[hsl(var(--muted-foreground))]">
+              <Users size={32} className="mx-auto mb-2 opacity-30" />
+              <p className="text-sm font-medium">No groups yet</p>
+              <p className="text-xs mt-1">Create a group to start chatting with multiple poets.</p>
+            </div>
+          )}
+
+          {/* Empty state for Unread tab when no unread messages exist */}
+          {filter === 'unread' && totalUnreadConversations === 0 && (
+            <div className="text-center py-12 text-[hsl(var(--muted-foreground))]">
+              <p className="text-sm font-medium">No unread messages</p>
+              <p className="text-xs mt-1">You&apos;re all caught up!</p>
+            </div>
+          )}
+
+          {/* 1. Groups */}
           {(filter === 'all' || filter === 'groups') &&
             groups.map((group) => {
               const lastMsg = group.last_message
@@ -252,7 +258,7 @@ export default function MessagesClient({
                         })()
                       ) : (
                         <span className="italic">
-                          {group.description || 'Circle created. Tap to start chatting.'}
+                          {group.description || 'Group created. Tap to start chatting.'}
                         </span>
                       )}
                     </p>
@@ -262,7 +268,7 @@ export default function MessagesClient({
             })}
 
           {/* 2. Direct Conversations */}
-          {(filter === 'all' || filter === 'direct' || filter === 'unread') &&
+          {(filter === 'all' || filter === 'unread') &&
             conversations
               .filter((c) => {
                 if (filter === 'unread') return (unreadCountMap[c.id] ?? 0) > 0

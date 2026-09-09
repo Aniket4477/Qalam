@@ -6,7 +6,7 @@ import type { Profile, GroupWithMeta, Group, GroupMessage } from '@/lib/supabase
 
 export const metadata: Metadata = {
   title: 'Messages — Qalam',
-  description: 'Your direct messages and poetry circles on Qalam',
+  description: 'Your direct messages and groups on Qalam',
 }
 
 interface ConversationRow {
