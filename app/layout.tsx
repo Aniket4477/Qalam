@@ -6,6 +6,7 @@ import { Toaster } from '@/components/ui/toaster'
 import Navbar from '@/components/nav/Navbar'
 import { createClient } from '@/lib/supabase/server'
 import type { Profile } from '@/lib/supabase/types'
+import { Analytics } from '@vercel/analytics/next'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -71,6 +72,7 @@ export default async function RootLayout({
             </main>
           </div>
           <Toaster />
+          <Analytics />
         </ThemeProvider>
       </body>
     </html>
