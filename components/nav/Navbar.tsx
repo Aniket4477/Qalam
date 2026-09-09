@@ -222,10 +222,21 @@ export default function Navbar({
         {/* Logo */}
         <Link
           href="/"
-          className="font-serif text-xl font-semibold text-[hsl(var(--primary))] shrink-0"
-          style={{ fontFamily: 'Lora, Georgia, serif' }}
+          className="flex items-center gap-2 shrink-0 group select-none"
+          aria-label="Qalam Home"
         >
-          قلم <span className="text-[hsl(var(--foreground))]">Qalam</span>
+          <span
+            className="text-2xl font-bold text-[hsl(var(--primary))] tracking-wide leading-none transition-transform group-hover:scale-105 font-hindi"
+            style={{ fontFamily: "'Rozha One', 'Kalam', 'Lora', serif" }}
+          >
+            क़लम
+          </span>
+          <span
+            className="text-xl font-semibold text-[hsl(var(--foreground))] tracking-tight leading-none"
+            style={{ fontFamily: 'Lora, Georgia, serif' }}
+          >
+            Qalam
+          </span>
         </Link>
 
         {/* Desktop nav links */}
