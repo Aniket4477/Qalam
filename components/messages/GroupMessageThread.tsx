@@ -21,6 +21,8 @@ export default function GroupMessageThread({
   currentUserId,
   initialMessages,
 }: GroupMessageThreadProps) {
+  const [currentGroup, setCurrentGroup] = useState<Group>(group)
+  const [currentMembers, setCurrentMembers] = useState<GroupMember[]>(members)
   const [messages, setMessages] = useState<GroupMessage[]>(initialMessages)
   const [newMessage, setNewMessage] = useState('')
   const [sending, setSending] = useState(false)
@@ -33,7 +35,7 @@ export default function GroupMessageThread({
 
   // Member map by user_id for quick avatar/name resolution
   const memberMap = useRef<Record<string, Profile>>({})
-  members.forEach((m) => {
+  currentMembers.forEach((m) => {
     if (m.profiles) memberMap.current[m.user_id] = m.profiles
   })
 
@@ -142,18 +144,27 @@ export default function GroupMessageThread({
             onClick={() => setInfoOpen(true)}
             className="flex items-center gap-2.5 min-w-0 text-left hover:opacity-80 transition-opacity"
           >
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[hsl(var(--primary))] to-[hsl(var(--primary)/0.6)] text-[hsl(var(--primary-foreground))] flex items-center justify-center shrink-0 shadow-xs">
-              <Users size={18} />
-            </div>
+            {currentGroup.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={currentGroup.avatar_url}
+                alt={currentGroup.name}
+                className="w-9 h-9 rounded-xl object-cover shrink-0 border border-[hsl(var(--border))]"
+              />
+            ) : (
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[hsl(var(--primary))] to-[hsl(var(--primary)/0.6)] text-[hsl(var(--primary-foreground))] flex items-center justify-center shrink-0 shadow-xs">
+                <Users size={18} />
+              </div>
+            )}
             <div className="min-w-0">
               <h1
                 className="font-bold text-sm sm:text-base leading-none text-[hsl(var(--foreground))] truncate"
                 style={{ fontFamily: 'Lora, Georgia, serif' }}
               >
-                {group.name}
+                {currentGroup.name}
               </h1>
               <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5 truncate">
-                {members.length} member{members.length !== 1 ? 's' : ''} • Tap for circle info
+                {currentMembers.length} member{currentMembers.length !== 1 ? 's' : ''} • Tap for circle info
               </p>
             </div>
           </button>
@@ -291,10 +302,12 @@ export default function GroupMessageThread({
       {/* Circle Info Drawer / Modal */}
       {infoOpen && (
         <GroupInfoModal
-          group={group}
-          members={members}
+          group={currentGroup}
+          members={currentMembers}
           currentUserId={currentUserId}
           onClose={() => setInfoOpen(false)}
+          onGroupUpdated={(updated) => setCurrentGroup(updated)}
+          onMembersUpdated={(updated) => setCurrentMembers(updated)}
         />
       )}
     </div>

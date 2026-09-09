@@ -193,9 +193,18 @@ export default function MessagesClient({
                 >
                   {/* Group Avatar */}
                   <div className="relative shrink-0">
-                    <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[hsl(var(--primary))] to-[hsl(var(--primary)/0.6)] text-[hsl(var(--primary-foreground))] flex items-center justify-center shrink-0 shadow-xs border border-[hsl(var(--border))] group-hover:scale-105 transition-transform">
-                      <Users size={20} />
-                    </div>
+                    {group.avatar_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={group.avatar_url}
+                        alt={group.name}
+                        className="w-11 h-11 rounded-2xl object-cover border border-[hsl(var(--border))] group-hover:scale-105 transition-transform"
+                      />
+                    ) : (
+                      <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[hsl(var(--primary))] to-[hsl(var(--primary)/0.6)] text-[hsl(var(--primary-foreground))] flex items-center justify-center shrink-0 shadow-xs border border-[hsl(var(--border))] group-hover:scale-105 transition-transform">
+                        <Users size={20} />
+                      </div>
+                    )}
                   </div>
 
                   {/* Group Info */}

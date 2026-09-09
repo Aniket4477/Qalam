@@ -636,6 +636,22 @@ AS $$
   );
 $$;
 
+CREATE OR REPLACE FUNCTION is_group_admin(p_group_id UUID, p_user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.group_members
+    WHERE group_id = p_group_id AND user_id = p_user_id AND role = 'admin'
+  ) OR EXISTS (
+    SELECT 1 FROM public.groups
+    WHERE id = p_group_id AND created_by = p_user_id
+  );
+$$;
+
 ALTER TABLE public.groups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.group_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.group_messages ENABLE ROW LEVEL SECURITY;
@@ -650,7 +666,7 @@ CREATE POLICY "groups_authenticated_insert" ON public.groups
 
 DROP POLICY IF EXISTS "groups_admin_update" ON public.groups;
 CREATE POLICY "groups_admin_update" ON public.groups
-  FOR UPDATE USING (created_by = auth.uid());
+  FOR UPDATE USING (is_group_admin(id, auth.uid()));
 
 DROP POLICY IF EXISTS "groups_admin_delete" ON public.groups;
 CREATE POLICY "groups_admin_delete" ON public.groups
@@ -665,16 +681,20 @@ CREATE POLICY "group_members_insert" ON public.group_members
   FOR INSERT WITH CHECK (
     auth.role() = 'authenticated' AND (
       user_id = auth.uid() OR
-      is_group_member(group_id, auth.uid()) OR
-      EXISTS (SELECT 1 FROM public.groups WHERE id = group_id AND created_by = auth.uid())
+      is_group_admin(group_id, auth.uid()) OR
+      is_group_member(group_id, auth.uid())
     )
   );
+
+DROP POLICY IF EXISTS "group_members_update" ON public.group_members;
+CREATE POLICY "group_members_update" ON public.group_members
+  FOR UPDATE USING (is_group_admin(group_id, auth.uid()));
 
 DROP POLICY IF EXISTS "group_members_delete" ON public.group_members;
 CREATE POLICY "group_members_delete" ON public.group_members
   FOR DELETE USING (
     user_id = auth.uid() OR
-    EXISTS (SELECT 1 FROM public.groups WHERE id = group_id AND created_by = auth.uid())
+    is_group_admin(group_id, auth.uid())
   );
 
 DROP POLICY IF EXISTS "group_messages_read" ON public.group_messages;

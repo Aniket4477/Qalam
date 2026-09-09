@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/lib/supabase/types'
-import { X, Users, Search, Plus, Check, Loader2 } from 'lucide-react'
+import { X, Users, Search, Plus, Check, Loader2, Camera } from 'lucide-react'
 
 interface CreateGroupModalProps {
   currentUserId: string
@@ -18,6 +18,8 @@ export default function CreateGroupModal({
   const router = useRouter()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [memberSearch, setMemberSearch] = useState('')
   const [searchResults, setSearchResults] = useState<Profile[]>([])
   const [selectedMembers, setSelectedMembers] = useState<Profile[]>([])
@@ -25,6 +27,7 @@ export default function CreateGroupModal({
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sb = supabase as any
@@ -86,12 +89,27 @@ export default function CreateGroupModal({
     setError(null)
 
     try {
+      let finalAvatarUrl: string | null = null
+      if (avatarFile) {
+        const ext = avatarFile.name.split('.').pop()
+        const path = `groups/${crypto.randomUUID()}/avatar-${Date.now()}.${ext}`
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(path, avatarFile, { upsert: true })
+
+        if (!uploadError) {
+          const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path)
+          finalAvatarUrl = `${urlData.publicUrl}?t=${Date.now()}`
+        }
+      }
+
       // 1. Create group
       const { data: newGroup, error: groupErr } = await sb
         .from('groups')
         .insert({
           name: trimmedName,
           description: description.trim() || null,
+          avatar_url: finalAvatarUrl,
           created_by: currentUserId,
         })
         .select('*')
@@ -180,6 +198,62 @@ export default function CreateGroupModal({
               {error}
             </div>
           )}
+
+          {/* Optional Group Photo Picker */}
+          <div className="flex flex-col items-center justify-center gap-1.5 pb-2 border-b border-[hsl(var(--border)/0.5)]">
+            <div
+              className="relative group cursor-pointer"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {avatarPreview ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={avatarPreview}
+                  alt="Preview"
+                  className="w-16 h-16 rounded-2xl object-cover border-2 border-[hsl(var(--primary)/0.4)] shadow-xs"
+                />
+              ) : (
+                <div className="w-16 h-16 rounded-2xl bg-[hsl(var(--muted))] border-2 border-dashed border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] flex flex-col items-center justify-center group-hover:border-[hsl(var(--primary)/0.5)] transition-colors">
+                  <Camera size={20} className="mb-0.5 opacity-60" />
+                  <span className="text-[10px]">Add Photo</span>
+                </div>
+              )}
+              {avatarPreview && (
+                <div className="absolute inset-0 bg-black/40 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Camera size={18} className="text-white" />
+                </div>
+              )}
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) {
+                  setAvatarFile(file)
+                  setAvatarPreview(URL.createObjectURL(file))
+                }
+              }}
+              className="hidden"
+            />
+            {avatarPreview ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setAvatarFile(null)
+                  setAvatarPreview(null)
+                }}
+                className="text-[11px] text-red-500 hover:underline"
+              >
+                Remove Photo
+              </button>
+            ) : (
+              <span className="text-[11px] text-[hsl(var(--muted-foreground))]">
+                Optional Circle Photo
+              </span>
+            )}
+          </div>
 
           {/* Group Name */}
           <div>
