@@ -2,7 +2,12 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { formatDate, cn, formatGroupSystemMessage } from '@/lib/utils'
+import {
+  formatDate,
+  cn,
+  formatGroupSystemMessage,
+  parsePostShareMessage,
+} from '@/lib/utils'
 import { MessageCircle, SquarePen, Users, Plus } from 'lucide-react'
 import type { Profile, GroupWithMeta } from '@/lib/supabase/types'
 import CreateGroupModal from './CreateGroupModal'
@@ -244,6 +249,7 @@ export default function MessagesClient({
                           if (sys.isSystem) {
                             return <span className="italic">{sys.text}</span>
                           }
+                          const shared = parsePostShareMessage(lastMsg.body)
                           return (
                             <>
                               <span className="font-semibold text-[hsl(var(--foreground))]">
@@ -252,7 +258,13 @@ export default function MessagesClient({
                                   : lastMsg.profiles?.display_name || 'Member'}
                                 :{' '}
                               </span>
-                              <span>{lastMsg.body}</span>
+                              {shared ? (
+                                <span className="italic">
+                                  Shared a poem{shared.title ? ` — "${shared.title}"` : ''}
+                                </span>
+                              ) : (
+                                <span>{lastMsg.body}</span>
+                              )}
                             </>
                           )
                         })()
@@ -371,9 +383,15 @@ export default function MessagesClient({
                             : 'text-[hsl(var(--muted-foreground))]'
                         )}
                       >
-                        {lastMsg
-                          ? `${lastMsg.sender_id === currentUserId ? 'You: ' : ''}${lastMsg.body}`
-                          : 'Start a conversation'}
+                        {(() => {
+                          if (!lastMsg) return 'Start a conversation'
+                          const prefix = lastMsg.sender_id === currentUserId ? 'You: ' : ''
+                          const shared = parsePostShareMessage(lastMsg.body)
+                          if (shared) {
+                            return `${prefix}Shared a poem${shared.title ? ` — "${shared.title}"` : ''}`
+                          }
+                          return `${prefix}${lastMsg.body}`
+                        })()}
                       </p>
                     </div>
                   </Link>

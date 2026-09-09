@@ -10,8 +10,10 @@ import {
   shouldShowChatDivider,
   formatBubbleTime,
   formatGroupSystemMessage,
+  parsePostShareMessage,
+  cn,
 } from '@/lib/utils'
-import { Send, ArrowLeft, Loader2, Users, Info } from 'lucide-react'
+import { Send, ArrowLeft, Loader2, Users, Info, ArrowRight } from 'lucide-react'
 import GroupInfoModal from './GroupInfoModal'
 
 interface GroupMessageThreadProps {
@@ -277,24 +279,92 @@ export default function GroupMessageThread({
                       )}
 
                       {/* Message bubble */}
-                      <div
-                        className={`rounded-2xl px-4 py-2 text-sm break-words shadow-xs ${
-                          isSelf
-                            ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-br-xs'
-                            : 'bg-[hsl(var(--muted)/0.7)] text-[hsl(var(--foreground))] border border-[hsl(var(--border)/0.5)] rounded-bl-xs'
-                        }`}
-                      >
-                        <p className="whitespace-pre-wrap leading-relaxed">{msg.body}</p>
-                        <p
-                          className={`text-[10px] mt-1 text-right select-none ${
-                            isSelf
-                              ? 'text-[hsl(var(--primary-foreground)/0.75)]'
-                              : 'text-[hsl(var(--muted-foreground))]'
-                          }`}
-                        >
-                          {formatBubbleTime(msg.created_at)}
-                        </p>
-                      </div>
+                      {(() => {
+                        const sharedPost = parsePostShareMessage(msg.body)
+
+                        return (
+                          <div
+                            className={`rounded-2xl px-3.5 py-2.5 text-sm break-words shadow-xs ${
+                              isSelf
+                                ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-br-xs'
+                                : 'bg-[hsl(var(--muted)/0.7)] text-[hsl(var(--foreground))] border border-[hsl(var(--border)/0.5)] rounded-bl-xs'
+                            }`}
+                          >
+                            {sharedPost ? (
+                              <div>
+                                {sharedPost.note && (
+                                  <p className="whitespace-pre-wrap break-words leading-relaxed mb-2">
+                                    {sharedPost.note}
+                                  </p>
+                                )}
+                                <Link
+                                  href={`/post/${sharedPost.id}`}
+                                  className={cn(
+                                    'block p-3 rounded-xl border transition-all text-left shadow-2xs group/card',
+                                    isSelf
+                                      ? 'bg-[hsl(var(--background))] border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:border-[hsl(var(--primary-foreground)/0.5)]'
+                                      : 'bg-[hsl(var(--card))] border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:border-[hsl(var(--primary)/0.5)]'
+                                  )}
+                                >
+                                  <div className="flex items-center gap-2 mb-1.5">
+                                    {sharedPost.author_avatar ? (
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      <img
+                                        src={sharedPost.author_avatar}
+                                        alt={sharedPost.author_name}
+                                        className="w-5 h-5 rounded-full object-cover border border-[hsl(var(--border))]"
+                                      />
+                                    ) : (
+                                      <div className="w-5 h-5 rounded-full bg-[hsl(var(--primary)/0.15)] text-[hsl(var(--primary))] flex items-center justify-center text-[9px] font-bold">
+                                        {sharedPost.author_name.slice(0, 2).toUpperCase()}
+                                      </div>
+                                    )}
+                                    <div className="min-w-0">
+                                      <p className="text-xs font-semibold leading-tight truncate text-[hsl(var(--foreground))]">
+                                        {sharedPost.author_name}
+                                      </p>
+                                      {sharedPost.author_username && (
+                                        <p className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono leading-tight truncate">
+                                          @{sharedPost.author_username}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {sharedPost.title && (
+                                    <p
+                                      className="font-bold text-xs mb-1 text-[hsl(var(--foreground))] truncate"
+                                      style={{ fontFamily: 'Lora, Georgia, serif' }}
+                                    >
+                                      {sharedPost.title}
+                                    </p>
+                                  )}
+
+                                  <p className="text-xs text-[hsl(var(--muted-foreground))] line-clamp-3 italic whitespace-pre-line leading-relaxed">
+                                    &ldquo;{sharedPost.preview}&rdquo;
+                                  </p>
+
+                                  <div className="mt-2 pt-1.5 border-t border-[hsl(var(--border)/0.5)] flex items-center justify-between text-[11px] font-medium text-[hsl(var(--primary))] group-hover/card:translate-x-0.5 transition-transform">
+                                    <span>Read poem</span>
+                                    <ArrowRight size={12} />
+                                  </div>
+                                </Link>
+                              </div>
+                            ) : (
+                              <p className="whitespace-pre-wrap leading-relaxed">{msg.body}</p>
+                            )}
+                            <p
+                              className={`text-[10px] mt-1 text-right select-none ${
+                                isSelf
+                                  ? 'text-[hsl(var(--primary-foreground)/0.75)]'
+                                  : 'text-[hsl(var(--muted-foreground))]'
+                              }`}
+                            >
+                              {formatBubbleTime(msg.created_at)}
+                            </p>
+                          </div>
+                        )
+                      })()}
                     </div>
                   </div>
                 )}

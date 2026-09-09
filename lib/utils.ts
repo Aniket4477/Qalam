@@ -338,3 +338,28 @@ export function formatGroupSystemMessage(
   return { isSystem: false, text: body }
 }
 
+/**
+ * Shared post structure inside chat messages
+ */
+export interface SharedPostData {
+  id: string
+  title?: string
+  author_name: string
+  author_username?: string
+  author_avatar?: string
+  preview: string
+  note?: string
+}
+
+/**
+ * Parse a shared post message payload
+ */
+export function parsePostShareMessage(body: string): SharedPostData | null {
+  if (!body || !body.startsWith('[post]:')) return null
+  try {
+    const jsonStr = body.slice(7)
+    return JSON.parse(jsonStr) as SharedPostData
+  } catch {
+    return null
+  }
+}

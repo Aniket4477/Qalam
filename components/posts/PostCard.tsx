@@ -7,6 +7,7 @@ import { cn, formatDate, truncateBody, POST_TYPE_LABELS, isRTL } from '@/lib/uti
 import { MessageCircle, BookOpen } from 'lucide-react'
 import LikeButton from './LikeButton'
 import CommentList from './CommentList'
+import SendPostButton from './SendPostButton'
 
 interface PostCardProps {
   post: PostWithAuthor
@@ -153,6 +154,15 @@ export default function PostCard({
             <MessageCircle size={15} />
             <span className="tabular-nums">{commentsCount}</span>
           </button>
+          <SendPostButton
+            postId={post.id}
+            title={post.title ?? undefined}
+            authorName={post.profiles?.display_name ?? 'Poet'}
+            authorUsername={post.profiles?.username ?? undefined}
+            authorAvatar={post.profiles?.avatar_url ?? undefined}
+            preview={truncateBody(post.body, 120)}
+            variant="icon"
+          />
           <Link
             href={`/post/${post.id}`}
             className="flex items-center gap-1 text-xs text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors py-0.5 px-1 rounded hover:bg-[hsl(var(--accent))]"

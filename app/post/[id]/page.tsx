@@ -6,6 +6,7 @@ import { formatDate, POST_TYPE_LABELS, isRTL, getPreviewLines } from '@/lib/util
 import LikeButton from '@/components/posts/LikeButton'
 import CommentList from '@/components/posts/CommentList'
 import ShareButton from '@/components/posts/ShareButton'
+import SendPostButton from '@/components/posts/SendPostButton'
 import PostActions from '@/components/posts/PostActions'
 import type { Post, Profile, Comment } from '@/lib/supabase/types'
 
@@ -184,11 +185,20 @@ export default async function PostPage({ params }: Props) {
         </div>
       )}
 
-      <div className="flex items-center gap-3 py-4 border-t border-b border-[hsl(var(--border))] mb-8">
+      <div className="flex items-center gap-3 py-4 border-t border-b border-[hsl(var(--border))] mb-8 flex-wrap">
         <LikeButton
           postId={post.id}
           initialCount={likesCount}
           initialLiked={userHasLiked}
+        />
+        <SendPostButton
+          postId={post.id}
+          title={post.title ?? undefined}
+          authorName={profile?.display_name ?? 'Unknown'}
+          authorUsername={profile?.username ?? undefined}
+          authorAvatar={profile?.avatar_url ?? undefined}
+          preview={preview}
+          variant="button"
         />
         <ShareButton
           title={post.title ?? ''}
