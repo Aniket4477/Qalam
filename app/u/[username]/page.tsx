@@ -127,6 +127,7 @@ export default async function ProfilePage({ params }: Props) {
 
   const enrichedPosts: PostWithAuthor[] = posts.map((post) => ({
     ...post,
+    profiles: post.profiles || profile,
     likes_count: likesMap[post.id] ?? 0,
     first_liker: firstLikerMap[post.id] ?? null,
     comments_count: commentsMap[post.id] ?? 0,
@@ -355,7 +356,7 @@ export default async function ProfilePage({ params }: Props) {
         ) : (
           <div className="space-y-4">
             {enrichedPosts.map((post) => (
-              <PostCard key={post.id} post={post} showAuthor={false} />
+              <PostCard key={post.id} post={post} showAuthor={true} />
             ))}
           </div>
         )}
