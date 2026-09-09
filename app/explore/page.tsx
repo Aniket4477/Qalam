@@ -213,7 +213,7 @@ function ExploreContent() {
           <span className="text-xs text-[hsl(var(--muted-foreground))]">Filters:</span>
           {query && (
             <span className="text-xs px-2 py-0.5 rounded-full bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))]">
-              "{query}"
+              &quot;{query}&quot;
             </span>
           )}
           {typeFilter && (

@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 
 interface HomeFeedTabsProps {
@@ -9,7 +8,6 @@ interface HomeFeedTabsProps {
 }
 
 export default function HomeFeedTabs({ activeTab }: HomeFeedTabsProps) {
-  const router = useRouter()
 
   const tabs = [
     { id: 'latest', label: 'Latest' },
