@@ -8,6 +8,7 @@ import CommentList from '@/components/posts/CommentList'
 import ShareButton from '@/components/posts/ShareButton'
 import SendPostButton from '@/components/posts/SendPostButton'
 import PostActions from '@/components/posts/PostActions'
+import BackButton from '@/components/ui/BackButton'
 import type { Post, Profile, Comment } from '@/lib/supabase/types'
 
 type PostWithProfile = Post & { profiles: Profile }
@@ -84,12 +85,7 @@ export default async function PostPage({ params }: Props) {
 
   return (
     <article className="max-w-2xl mx-auto px-4 py-10 animate-fade-in">
-      <Link
-        href="/"
-        className="text-sm text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors mb-8 inline-block"
-      >
-        ← Back to feed
-      </Link>
+      <BackButton label="Back" />
 
       {post.cover_url && (
         // eslint-disable-next-line @next/next/no-img-element
