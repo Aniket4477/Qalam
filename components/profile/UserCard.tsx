@@ -13,6 +13,7 @@ interface UserCardProps {
   currentUserId?: string | null
   showFollowButton?: boolean
   showBio?: boolean
+  onFollowChange?: (isFollowing: boolean) => void
 }
 
 export default function UserCard({
@@ -21,6 +22,7 @@ export default function UserCard({
   currentUserId,
   showFollowButton = true,
   showBio = true,
+  onFollowChange,
 }: UserCardProps) {
   const [imgError, setImgError] = useState(false)
   const isSelf = currentUserId === profile.id
@@ -97,6 +99,7 @@ export default function UserCard({
           <FollowButton
             targetUserId={profile.id}
             initialIsFollowing={initialIsFollowing}
+            onFollowChange={onFollowChange}
           />
         )}
 

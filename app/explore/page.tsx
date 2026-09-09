@@ -47,55 +47,96 @@ function ExploreContent() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sb = supabase as any
 
-  // Load current user and initial suggested poets
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) setCurrentUserId(user.id)
-    })
-
-    const loadSuggestedPoets = async () => {
-      setLoadingSuggested(true)
-      try {
-        const { data } = await sb
-          .from('profiles')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(12)
-
-        if (data) {
-          setSuggestedPoets(data as Profile[])
-        }
-      } catch (err) {
-        console.error('Error loading suggested poets:', err)
-      } finally {
-        setLoadingSuggested(false)
-      }
-    }
-
-    loadSuggestedPoets()
-  }, [supabase, sb])
-
   // Helper to fetch follow states for a list of profiles
   const checkFollowStates = useCallback(
     async (profiles: Profile[], userId: string | null) => {
       if (!userId || profiles.length === 0) return
       const targetIds = profiles.map((p) => p.id)
-      const { data } = await sb
-        .from('follows')
-        .select('following_id')
-        .eq('follower_id', userId)
-        .in('following_id', targetIds)
+      try {
+        const { data, error } = await sb
+          .from('follows')
+          .select('following_id')
+          .eq('follower_id', userId)
+          .in('following_id', targetIds)
 
-      if (data) {
-        const map: Record<string, boolean> = {}
-        data.forEach((f: { following_id: string }) => {
-          map[f.following_id] = true
-        })
-        setFollowingMap((prev) => ({ ...prev, ...map }))
+        if (!error && data) {
+          const followingSet = new Set(data.map((f: { following_id: string }) => f.following_id))
+          const map: Record<string, boolean> = {}
+          targetIds.forEach((id) => {
+            map[id] = followingSet.has(id)
+          })
+          setFollowingMap((prev) => ({ ...prev, ...map }))
+        }
+      } catch (err) {
+        console.error('Error checking follow states:', err)
       }
     },
     [sb]
   )
+
+  // Load current user and initial suggested poets
+  useEffect(() => {
+    let isMounted = true
+
+    const loadSuggestedPoets = async () => {
+      setLoadingSuggested(true)
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+        const uid = user?.id || null
+        if (isMounted) setCurrentUserId(uid)
+
+        const { data, error } = await sb
+          .from('profiles')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(12)
+
+        if (!error && data && isMounted) {
+          const profiles = data as Profile[]
+          setSuggestedPoets(profiles)
+          if (uid) {
+            checkFollowStates(profiles, uid)
+          }
+        }
+      } catch (err) {
+        console.error('Error loading suggested poets:', err)
+      } finally {
+        if (isMounted) setLoadingSuggested(false)
+      }
+    }
+
+    loadSuggestedPoets()
+    return () => {
+      isMounted = false
+    }
+  }, [supabase, sb, checkFollowStates])
+
+  // Re-verify follow states whenever currentUserId or suggestedPoets becomes available
+  useEffect(() => {
+    if (currentUserId && suggestedPoets.length > 0) {
+      checkFollowStates(suggestedPoets, currentUserId)
+    }
+  }, [currentUserId, suggestedPoets, checkFollowStates])
+
+  // Listen to global follow events so all explore cards stay synchronized
+  useEffect(() => {
+    const handleGlobalFollowChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ targetUserId: string; isFollowing: boolean }>
+      if (customEvent.detail) {
+        setFollowingMap((prev) => ({
+          ...prev,
+          [customEvent.detail.targetUserId]: customEvent.detail.isFollowing,
+        }))
+      }
+    }
+
+    window.addEventListener('user-follow-changed', handleGlobalFollowChange)
+    return () => {
+      window.removeEventListener('user-follow-changed', handleGlobalFollowChange)
+    }
+  }, [])
 
   // Search posts
   const searchPosts = useCallback(
@@ -528,6 +569,9 @@ function ExploreContent() {
                       profile={profile}
                       initialIsFollowing={followingMap[profile.id] ?? false}
                       currentUserId={currentUserId}
+                      onFollowChange={(nextFollowing) => {
+                        setFollowingMap((prev) => ({ ...prev, [profile.id]: nextFollowing }))
+                      }}
                     />
                   ))}
                 </div>
@@ -559,6 +603,9 @@ function ExploreContent() {
                       profile={profile}
                       initialIsFollowing={followingMap[profile.id] ?? false}
                       currentUserId={currentUserId}
+                      onFollowChange={(nextFollowing) => {
+                        setFollowingMap((prev) => ({ ...prev, [profile.id]: nextFollowing }))
+                      }}
                     />
                   ))}
                 </div>
@@ -700,6 +747,9 @@ function ExploreContent() {
                           profile={profile}
                           initialIsFollowing={followingMap[profile.id] ?? false}
                           currentUserId={currentUserId}
+                          onFollowChange={(nextFollowing) => {
+                            setFollowingMap((prev) => ({ ...prev, [profile.id]: nextFollowing }))
+                          }}
                         />
                       ))}
                     </div>
@@ -757,6 +807,9 @@ function ExploreContent() {
                         profile={profile}
                         initialIsFollowing={followingMap[profile.id] ?? false}
                         currentUserId={currentUserId}
+                        onFollowChange={(nextFollowing) => {
+                          setFollowingMap((prev) => ({ ...prev, [profile.id]: nextFollowing }))
+                        }}
                       />
                     ))}
                   </div>

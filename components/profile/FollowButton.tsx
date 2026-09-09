@@ -29,6 +29,56 @@ export default function FollowButton({
     })
   }, [supabase])
 
+  // Sync state whenever initialIsFollowing prop updates from parent
+  useEffect(() => {
+    setIsFollowing(initialIsFollowing)
+  }, [initialIsFollowing])
+
+  // Auto-verify follow state against database to guarantee accuracy
+  useEffect(() => {
+    if (!currentUserId || !targetUserId || currentUserId === targetUserId) return
+    let isMounted = true
+
+    const verifyFollow = async () => {
+      try {
+        const { data, error } = await sb
+          .from('follows')
+          .select('id')
+          .eq('follower_id', currentUserId)
+          .eq('following_id', targetUserId)
+          .maybeSingle()
+
+        if (!error && isMounted) {
+          const actuallyFollowing = !!data
+          setIsFollowing(actuallyFollowing)
+          if (actuallyFollowing !== initialIsFollowing) {
+            onFollowChange?.(actuallyFollowing)
+          }
+        }
+      } catch {}
+    }
+
+    verifyFollow()
+    return () => {
+      isMounted = false
+    }
+  }, [currentUserId, targetUserId, sb])
+
+  // Listen to global follow state events from other components
+  useEffect(() => {
+    const handleGlobalFollowChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ targetUserId: string; isFollowing: boolean }>
+      if (customEvent.detail && customEvent.detail.targetUserId === targetUserId) {
+        setIsFollowing(customEvent.detail.isFollowing)
+      }
+    }
+
+    window.addEventListener('user-follow-changed', handleGlobalFollowChange)
+    return () => {
+      window.removeEventListener('user-follow-changed', handleGlobalFollowChange)
+    }
+  }, [targetUserId])
+
   const handleToggle = async (e: React.MouseEvent) => {
     e.stopPropagation()
     e.preventDefault()
@@ -52,7 +102,20 @@ export default function FollowButton({
           following_id: targetUserId,
         })
       } else {
-        await sb.from('follows').delete().eq('follower_id', currentUserId).eq('following_id', targetUserId)
+        await sb
+          .from('follows')
+          .delete()
+          .eq('follower_id', currentUserId)
+          .eq('following_id', targetUserId)
+      }
+
+      // Notify other components about this follow update
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('user-follow-changed', {
+            detail: { targetUserId, isFollowing: nextState },
+          })
+        )
       }
     } catch {
       // Revert if error
@@ -72,7 +135,7 @@ export default function FollowButton({
       onClick={handleToggle}
       disabled={loading}
       className={cn(
-        'flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-150',
+        'flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-150 select-none',
         isFollowing
           ? 'border border-[hsl(var(--border))] bg-[hsl(var(--accent))] text-[hsl(var(--foreground))] hover:border-red-300 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20'
           : 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:opacity-90'
