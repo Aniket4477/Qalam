@@ -4,8 +4,9 @@ import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import PostCard from '@/components/posts/PostCard'
 import CompetitionEnterButton from '@/components/competitions/CompetitionEnterButton'
+import AdminCompetitionControls from '@/components/competitions/AdminCompetitionControls'
 import type { PostWithAuthor, Competition } from '@/lib/supabase/types'
-import { formatDate, POST_TYPE_LABELS } from '@/lib/utils'
+import { formatDate, POST_TYPE_LABELS, isUserAdmin } from '@/lib/utils'
 import { Trophy, Calendar, Clock, Users } from 'lucide-react'
 
 interface Props {
@@ -27,11 +28,23 @@ export default async function CompetitionDetailPage({ params }: Props) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sb = supabase as any
 
-  const { data: compData } = await sb.from('competitions').select('*').eq('id', id).single()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const [{ data: compData }, { data: userProfile }] = await Promise.all([
+    sb.from('competitions').select('*').eq('id', id).single(),
+    user
+      ? sb.from('profiles').select('id, username, display_name, is_admin').eq('id', user.id).single()
+      : Promise.resolve({ data: null }),
+  ])
   const competition = compData as Competition | null
   if (!competition) notFound()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const isAdmin = isUserAdmin(userProfile)
+
+  // Auto-sync is_admin in DB if needed
+  if (user && isAdmin && !userProfile?.is_admin) {
+    await sb.from('profiles').update({ is_admin: true }).eq('id', user.id)
+  }
 
   const { data: entriesData } = await sb
     .from('competition_entries')
@@ -117,6 +130,8 @@ export default async function CompetitionDetailPage({ params }: Props) {
       <Link href="/competitions" className="text-sm text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors mb-6 inline-block">
         ← Competitions
       </Link>
+
+      {isAdmin && <AdminCompetitionControls competition={competition} />}
 
       <div className="border border-[hsl(var(--border))] rounded-xl p-6 bg-[hsl(var(--card))] mb-8">
         <div className="flex items-start justify-between gap-4 mb-3">

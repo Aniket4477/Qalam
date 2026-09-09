@@ -4,8 +4,8 @@ import Link from 'next/link'
 import { useState } from 'react'
 import type { Profile } from '@/lib/supabase/types'
 import FollowButton from './FollowButton'
-import { MessageSquare, Calendar } from 'lucide-react'
-import { formatDate } from '@/lib/utils'
+import { MessageSquare, Calendar, Shield } from 'lucide-react'
+import { formatDate, isUserAdmin } from '@/lib/utils'
 
 interface UserCardProps {
   profile: Profile
@@ -60,6 +60,11 @@ export default function UserCard({
             >
               {profile.display_name}
             </h3>
+            {isUserAdmin(profile) && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                <Shield size={10} className="fill-amber-500/20" /> Admin
+              </span>
+            )}
             <span className="text-xs font-mono text-[hsl(var(--muted-foreground))] px-2 py-0.5 rounded-full bg-[hsl(var(--muted))] border border-[hsl(var(--border)/0.5)]">
               @{profile.username}
             </span>

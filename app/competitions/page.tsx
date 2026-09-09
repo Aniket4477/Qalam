@@ -2,8 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import type { Competition } from '@/lib/supabase/types'
-import { formatDate } from '@/lib/utils'
-import { Trophy, Plus, Clock, ChevronRight } from 'lucide-react'
+import { formatDate, isUserAdmin } from '@/lib/utils'
+import { Trophy, Plus, Clock, ChevronRight, Shield } from 'lucide-react'
 
 export const metadata: Metadata = {
   title: 'Competitions',
@@ -27,11 +27,17 @@ export default async function CompetitionsPage() {
   const [{ data: competitions }, { data: profile }] = await Promise.all([
     sb.from('competitions').select('*').order('starts_at', { ascending: false }),
     user
-      ? sb.from('profiles').select('is_admin').eq('id', user.id).single()
+      ? sb.from('profiles').select('id, username, display_name, is_admin').eq('id', user.id).single()
       : Promise.resolve({ data: null }),
   ])
 
-  const isAdmin = (profile as { is_admin?: boolean } | null)?.is_admin ?? false
+  const isAdmin = isUserAdmin(profile)
+
+  // Auto-sync admin status in database if user is admin but is_admin is not true yet
+  if (user && isAdmin && !profile?.is_admin) {
+    await sb.from('profiles').update({ is_admin: true }).eq('id', user.id)
+  }
+
   const comps = (competitions ?? []) as Competition[]
 
   const grouped = {
@@ -57,10 +63,28 @@ export default async function CompetitionsPage() {
             href="/competitions/new"
             className="flex items-center gap-1.5 px-4 py-2 bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
           >
-            <Plus size={15} /> New competition
+            <Plus size={15} /> Host Competition
           </Link>
         )}
       </div>
+
+      {isAdmin && (
+        <div className="mb-6 p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <Shield size={18} className="text-amber-500 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-[hsl(var(--foreground))]">Administrator Control Access</p>
+              <p className="text-xs text-[hsl(var(--muted-foreground))]">You have full administrator privileges to host, monitor, and conclude poetry competitions.</p>
+            </div>
+          </div>
+          <Link
+            href="/competitions/new"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold text-xs transition-colors shrink-0 self-start sm:self-auto shadow-xs"
+          >
+            <Plus size={14} /> New Challenge
+          </Link>
+        </div>
+      )}
 
       {comps.length === 0 ? (
         <div className="text-center py-20">

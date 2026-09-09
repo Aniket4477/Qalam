@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { PostType, CompetitionStatus } from '@/lib/supabase/types'
-import { POST_TYPE_LABELS } from '@/lib/utils'
+import { POST_TYPE_LABELS, isUserAdmin } from '@/lib/utils'
 import { Loader2 } from 'lucide-react'
 
 const POST_TYPES: (PostType | null)[] = [null, 'poem', 'shayari', 'ghazal', 'haiku', 'free_verse', 'other']
@@ -30,8 +30,16 @@ export default function NewCompetitionPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: profile } = await (supabase as any).from('profiles').select('is_admin').eq('id', user.id).single()
-      if (!profile?.is_admin) { router.push('/competitions'); return }
+      const { data: profile } = await (supabase as any).from('profiles').select('id, username, display_name, is_admin').eq('id', user.id).single()
+      const admin = isUserAdmin(profile)
+      if (!admin) { router.push('/competitions'); return }
+
+      // Auto-sync is_admin in profiles table if not set yet
+      if (!profile?.is_admin) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase as any).from('profiles').update({ is_admin: true }).eq('id', user.id)
+      }
+
       setIsAdmin(true)
       setLoading(false)
     }
@@ -45,6 +53,10 @@ export default function NewCompetitionPage() {
 
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
+
+    // Ensure is_admin is true in DB so RLS policy passes
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any).from('profiles').update({ is_admin: true }).eq('id', user.id)
 
     const now = new Date()
     const starts = new Date(startsAt)

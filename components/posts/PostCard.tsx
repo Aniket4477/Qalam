@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import type { PostWithAuthor } from '@/lib/supabase/types'
-import { cn, formatDate, truncateBody, POST_TYPE_LABELS, isRTL } from '@/lib/utils'
-import { MessageCircle, BookOpen } from 'lucide-react'
+import { cn, formatDate, truncateBody, POST_TYPE_LABELS, isRTL, isUserAdmin } from '@/lib/utils'
+import { MessageCircle, BookOpen, Shield } from 'lucide-react'
 import LikeButton from './LikeButton'
 import CommentList from './CommentList'
 import SendPostButton from './SendPostButton'
@@ -70,7 +70,14 @@ export default function PostCard({
               </div>
             )}
             <div>
-              <p className="text-sm font-medium leading-none">{post.profiles.display_name}</p>
+              <div className="flex items-center gap-1.5">
+                <p className="text-sm font-medium leading-none">{post.profiles.display_name}</p>
+                {isUserAdmin(post.profiles) && (
+                  <span title="Official Administrator" className="inline-flex items-center text-amber-500">
+                    <Shield size={12} className="fill-amber-500/30" />
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">@{post.profiles.username}</p>
             </div>
           </Link>

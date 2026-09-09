@@ -18,8 +18,10 @@ import {
   LogOut,
   Settings,
   User,
+  Shield,
+  Trophy,
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, isUserAdmin } from '@/lib/utils'
 
 interface NavbarProps {
   initialProfile?: Profile | null
@@ -216,6 +218,8 @@ export default function Navbar({
     .slice(0, 2)
     .toUpperCase()
 
+  const isAdmin = isUserAdmin(profile)
+
   return (
     <header className="sticky top-0 z-50 border-b border-[hsl(var(--border))] bg-[hsl(var(--background)/0.9)] backdrop-blur-md">
       <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
@@ -356,7 +360,14 @@ export default function Navbar({
                       )}
                       <div className="min-w-0">
                         <p className="font-medium text-sm truncate">{profile.display_name}</p>
-                        <p className="text-xs text-[hsl(var(--muted-foreground))] truncate">@{profile.username}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          {isAdmin && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 shrink-0">
+                              <Shield size={10} className="fill-amber-500/20" /> Admin
+                            </span>
+                          )}
+                          <p className="text-xs text-[hsl(var(--muted-foreground))] truncate">@{profile.username}</p>
+                        </div>
                       </div>
                     </div>
                     <Link
@@ -366,6 +377,15 @@ export default function Navbar({
                     >
                       <User size={15} /> Profile
                     </Link>
+                    {isAdmin && (
+                      <Link
+                        href="/competitions/new"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 font-medium transition-colors"
+                      >
+                        <Trophy size={15} /> Host Competition
+                      </Link>
+                    )}
                     <Link
                       href="/settings"
                       onClick={() => setUserMenuOpen(false)}
@@ -486,6 +506,16 @@ export default function Navbar({
                 )}
                 <span>Profile</span>
               </Link>
+              {isAdmin && (
+                <Link
+                  href="/competitions/new"
+                  onClick={() => setMobileOpen(false)}
+                  className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 rounded-md"
+                >
+                  <Trophy size={15} />
+                  <span>Host Competition (Admin)</span>
+                </Link>
+              )}
               <Link
                 href="/settings"
                 onClick={() => setMobileOpen(false)}

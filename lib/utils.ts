@@ -437,3 +437,25 @@ export function parseChatStickerMessage(body: string): ChatStickerData | null {
     return null
   }
 }
+
+/**
+ * Check if a user or profile has administration privileges.
+ * Recognizes is_admin = true or founder username 'aniketcpt'.
+ */
+export function isUserAdmin(
+  profileOrUser:
+    | {
+        is_admin?: boolean | null
+        username?: string | null
+        id?: string | null
+      }
+    | null
+    | undefined
+): boolean {
+  if (!profileOrUser) return false
+  if (profileOrUser.is_admin === true) return true
+  const uname = profileOrUser.username?.trim().toLowerCase()
+  if (uname === 'aniketcpt') return true
+  return false
+}
+
