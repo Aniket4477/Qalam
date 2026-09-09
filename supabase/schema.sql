@@ -475,6 +475,43 @@ CREATE TRIGGER on_comment_created
   FOR EACH ROW EXECUTE FUNCTION notify_on_comment();
 
 -- ============================================================
+-- FUNCTION: Create notification on message
+-- ============================================================
+CREATE OR REPLACE FUNCTION notify_on_message()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  conv RECORD;
+  recipient UUID;
+BEGIN
+  SELECT user_one_id, user_two_id INTO conv FROM public.conversations WHERE id = NEW.conversation_id;
+  IF conv.user_one_id = NEW.sender_id THEN
+    recipient := conv.user_two_id;
+  ELSE
+    recipient := conv.user_one_id;
+  END IF;
+
+  IF recipient IS NOT NULL THEN
+    INSERT INTO public.notifications (user_id, type, payload)
+    VALUES (
+      recipient,
+      'message',
+      jsonb_build_object('conversation_id', NEW.conversation_id, 'from_user_id', NEW.sender_id, 'message_id', NEW.id)
+    );
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS on_message_created ON messages;
+CREATE TRIGGER on_message_created
+  AFTER INSERT ON messages
+  FOR EACH ROW EXECUTE FUNCTION notify_on_message();
+
+-- ============================================================
 -- STORAGE BUCKETS & POLICIES (avatars, covers)
 -- ============================================================
 INSERT INTO storage.buckets (id, name, public)

@@ -40,14 +40,27 @@ export default async function MessagesPage() {
     .order('created_at', { ascending: false })
 
   const convIds = ((conversations ?? []) as ConversationRow[]).map((c) => c.id)
-  const { data: lastMessages } = convIds.length > 0
-    ? await sb.from('messages').select('conversation_id, body, created_at, sender_id').in('conversation_id', convIds).order('created_at', { ascending: false })
+  const { data: messagesData } = convIds.length > 0
+    ? await sb
+        .from('messages')
+        .select('id, conversation_id, body, created_at, sender_id, read_at')
+        .in('conversation_id', convIds)
+        .order('created_at', { ascending: false })
     : { data: [] }
 
-  const lastMsgMap: Record<string, { body: string; created_at: string; sender_id: string }> = {}
-  ;((lastMessages ?? []) as LastMsg[]).forEach((msg) => {
+  const lastMsgMap: Record<string, LastMsg> = {}
+  const unreadCountMap: Record<string, number> = {}
+
+  interface MessageItem extends LastMsg {
+    read_at: string | null
+  }
+
+  ;((messagesData ?? []) as MessageItem[]).forEach((msg) => {
     if (!lastMsgMap[msg.conversation_id]) {
       lastMsgMap[msg.conversation_id] = msg
+    }
+    if (msg.sender_id !== user.id && !msg.read_at) {
+      unreadCountMap[msg.conversation_id] = (unreadCountMap[msg.conversation_id] ?? 0) + 1
     }
   })
 
@@ -56,6 +69,7 @@ export default async function MessagesPage() {
       currentUserId={user.id}
       conversations={(conversations ?? []) as ConversationRow[]}
       lastMsgMap={lastMsgMap}
+      unreadCountMap={unreadCountMap}
     />
   )
 }

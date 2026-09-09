@@ -34,17 +34,23 @@ export default async function RootLayout({
   children: React.ReactNode
 }) {
   let initialProfile: Profile | null = null
+  let initialUnreadMessages = 0
+  let initialUnreadNotifications = 0
+
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (supabase as any)
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single()
-      if (data) initialProfile = data as Profile
+      const sb = supabase as any
+      const [profRes, notifRes, msgRes] = await Promise.all([
+        sb.from('profiles').select('*').eq('id', user.id).single(),
+        sb.from('notifications').select('*', { count: 'exact', head: true }).eq('user_id', user.id).is('read_at', null),
+        sb.from('messages').select('*', { count: 'exact', head: true }).neq('sender_id', user.id).is('read_at', null),
+      ])
+      if (profRes.data) initialProfile = profRes.data as Profile
+      initialUnreadNotifications = notifRes.count ?? 0
+      initialUnreadMessages = msgRes.count ?? 0
     }
   } catch {
     // Gracefully handle if cookies/session cannot be read
@@ -55,7 +61,11 @@ export default async function RootLayout({
       <body className={inter.className}>
         <ThemeProvider>
           <div className="min-h-screen flex flex-col">
-            <Navbar initialProfile={initialProfile} />
+            <Navbar
+              initialProfile={initialProfile}
+              initialUnreadMessages={initialUnreadMessages}
+              initialUnreadNotifications={initialUnreadNotifications}
+            />
             <main className="flex-1">
               {children}
             </main>

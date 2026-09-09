@@ -23,15 +23,22 @@ import { cn } from '@/lib/utils'
 
 interface NavbarProps {
   initialProfile?: Profile | null
+  initialUnreadMessages?: number
+  initialUnreadNotifications?: number
 }
 
-export default function Navbar({ initialProfile }: NavbarProps) {
+export default function Navbar({
+  initialProfile,
+  initialUnreadMessages = 0,
+  initialUnreadNotifications = 0,
+}: NavbarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { theme, setTheme } = useTheme()
   const [profile, setProfile] = useState<Profile | null>(initialProfile ?? null)
   const [imgError, setImgError] = useState(false)
-  const [unreadCount, setUnreadCount] = useState(0)
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(initialUnreadNotifications)
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(initialUnreadMessages)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
@@ -40,12 +47,20 @@ export default function Navbar({ initialProfile }: NavbarProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sb = supabase as any
 
-  // Sync initialProfile if supplied from parent / layout
+  // Sync initial props from server layout
   useEffect(() => {
     if (initialProfile) {
       setProfile(initialProfile)
     }
   }, [initialProfile])
+
+  useEffect(() => {
+    setUnreadMessagesCount(initialUnreadMessages)
+  }, [initialUnreadMessages])
+
+  useEffect(() => {
+    setUnreadNotificationsCount(initialUnreadNotifications)
+  }, [initialUnreadNotifications])
 
   // Reset img error if avatar_url changes
   useEffect(() => {
@@ -62,6 +77,8 @@ export default function Navbar({ initialProfile }: NavbarProps) {
     } = await supabase.auth.getUser()
     if (!user) {
       setProfile(null)
+      setUnreadNotificationsCount(0)
+      setUnreadMessagesCount(0)
       return
     }
 
@@ -74,13 +91,21 @@ export default function Navbar({ initialProfile }: NavbarProps) {
       setProfile(data as Profile)
     }
 
-    // unread notifications
-    const { count } = await sb
+    // Unread notifications count
+    const { count: notifCount } = await sb
       .from('notifications')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', user.id)
       .is('read_at', null)
-    setUnreadCount(count ?? 0)
+    setUnreadNotificationsCount(notifCount ?? 0)
+
+    // Unread incoming messages count
+    const { count: msgCount } = await sb
+      .from('messages')
+      .select('*', { count: 'exact', head: true })
+      .neq('sender_id', user.id)
+      .is('read_at', null)
+    setUnreadMessagesCount(msgCount ?? 0)
   }, [supabase, sb])
 
   // Initial fetch and auth listener
@@ -108,16 +133,16 @@ export default function Navbar({ initialProfile }: NavbarProps) {
     }
   }, [getProfile, supabase])
 
-  // Re-fetch on pathname changes (ensures navigation keeps navbar fresh)
+  // Re-fetch on pathname changes (e.g. entering a conversation marks it read, navigating updates badge)
   useEffect(() => {
     getProfile()
   }, [pathname, getProfile])
 
-  // Realtime subscription for live profile updates
+  // Realtime subscription for live profile, messages, and notification updates
   useEffect(() => {
     if (!profile?.id) return
 
-    const channel = supabase
+    const profileChannel = supabase
       .channel(`profile-${profile.id}`)
       .on(
         'postgres_changes',
@@ -135,10 +160,43 @@ export default function Navbar({ initialProfile }: NavbarProps) {
       )
       .subscribe()
 
+    const messagesChannel = supabase
+      .channel(`messages-user-${profile.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'messages',
+        },
+        () => {
+          getProfile()
+        }
+      )
+      .subscribe()
+
+    const notifChannel = supabase
+      .channel(`notifs-user-${profile.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${profile.id}`,
+        },
+        () => {
+          getProfile()
+        }
+      )
+      .subscribe()
+
     return () => {
-      supabase.removeChannel(channel)
+      supabase.removeChannel(profileChannel)
+      supabase.removeChannel(messagesChannel)
+      supabase.removeChannel(notifChannel)
     }
-  }, [profile?.id, supabase])
+  }, [profile?.id, getProfile, supabase])
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
@@ -217,18 +275,25 @@ export default function Navbar({ initialProfile }: NavbarProps) {
                 aria-label="Notifications"
               >
                 <Bell size={18} />
-                {unreadCount > 0 && (
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-[hsl(var(--primary))] rounded-full" />
+                {unreadNotificationsCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[17px] h-[17px] px-1 bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-full text-[10px] font-bold flex items-center justify-center shadow-xs animate-fade-in">
+                    {unreadNotificationsCount > 99 ? '99+' : unreadNotificationsCount}
+                  </span>
                 )}
               </Link>
 
-              {/* Messages */}
+              {/* Messages with unread badge */}
               <Link
                 href="/messages"
-                className="p-2 rounded-md text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--accent))] transition-colors"
+                className="relative p-2 rounded-md text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--accent))] transition-colors"
                 aria-label="Messages"
               >
                 <MessageCircle size={18} />
+                {unreadMessagesCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[17px] h-[17px] px-1 bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-full text-[10px] font-bold flex items-center justify-center shadow-xs animate-fade-in">
+                    {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
+                  </span>
+                )}
               </Link>
 
               {/* Write */}
@@ -361,6 +426,36 @@ export default function Navbar({ initialProfile }: NavbarProps) {
                 className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-[hsl(var(--primary))]"
               >
                 <PenLine size={15} /> Write
+              </Link>
+              <Link
+                href="/notifications"
+                onClick={() => setMobileOpen(false)}
+                className="flex items-center justify-between px-3 py-2 text-sm font-medium text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))] rounded-md"
+              >
+                <div className="flex items-center gap-2">
+                  <Bell size={16} />
+                  <span>Notifications</span>
+                </div>
+                {unreadNotificationsCount > 0 && (
+                  <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]">
+                    {unreadNotificationsCount}
+                  </span>
+                )}
+              </Link>
+              <Link
+                href="/messages"
+                onClick={() => setMobileOpen(false)}
+                className="flex items-center justify-between px-3 py-2 text-sm font-medium text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))] rounded-md"
+              >
+                <div className="flex items-center gap-2">
+                  <MessageCircle size={16} />
+                  <span>Messages</span>
+                </div>
+                {unreadMessagesCount > 0 && (
+                  <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]">
+                    {unreadMessagesCount}
+                  </span>
+                )}
               </Link>
               <Link
                 href={`/u/${profile.username}`}
