@@ -68,7 +68,11 @@ async function FeedContent({ tab }: { tab: string }) {
   const postIds = (posts as PostWithAuthor[]).map((p) => p.id)
 
   const [likesData, userLikesData, commentsData] = await Promise.all([
-    sb.from('likes').select('post_id').in('post_id', postIds),
+    sb
+      .from('likes')
+      .select('post_id, created_at, profiles(id, username, display_name, avatar_url)')
+      .in('post_id', postIds)
+      .order('created_at', { ascending: false }),
     user
       ? sb.from('likes').select('post_id').in('post_id', postIds).eq('user_id', user.id)
       : Promise.resolve({ data: [] }),
@@ -76,8 +80,14 @@ async function FeedContent({ tab }: { tab: string }) {
   ])
 
   const likesMap: Record<string, number> = {}
-  ;(likesData.data ?? []).forEach((l: { post_id: string }) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const firstLikerMap: Record<string, any> = {}
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ;(likesData.data ?? []).forEach((l: { post_id: string; profiles?: any }) => {
     likesMap[l.post_id] = (likesMap[l.post_id] ?? 0) + 1
+    if (!firstLikerMap[l.post_id] && l.profiles) {
+      firstLikerMap[l.post_id] = l.profiles
+    }
   })
 
   const userLikedSet = new Set((userLikesData.data ?? []).map((l: { post_id: string }) => l.post_id))
@@ -90,6 +100,7 @@ async function FeedContent({ tab }: { tab: string }) {
   let enrichedPosts = (posts as PostWithAuthor[]).map((p) => ({
     ...p,
     likes_count: likesMap[p.id] ?? 0,
+    first_liker: firstLikerMap[p.id] ?? null,
     comments_count: commentsMap[p.id] ?? 0,
     user_has_liked: userLikedSet.has(p.id),
   }))

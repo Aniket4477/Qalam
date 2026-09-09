@@ -49,7 +49,11 @@ export default async function CompetitionDetailPage({ params }: Props) {
 
   const [likesData, userLikesData, commentsData] = await Promise.all([
     entryPostIds.length > 0
-      ? sb.from('likes').select('post_id').in('post_id', entryPostIds)
+      ? sb
+          .from('likes')
+          .select('post_id, created_at, profiles(id, username, display_name, avatar_url)')
+          .in('post_id', entryPostIds)
+          .order('created_at', { ascending: false })
       : Promise.resolve({ data: [] }),
     user && entryPostIds.length > 0
       ? sb.from('likes').select('post_id').in('post_id', entryPostIds).eq('user_id', user.id)
@@ -60,8 +64,14 @@ export default async function CompetitionDetailPage({ params }: Props) {
   ])
 
   const likesMap: Record<string, number> = {}
-  ;(likesData.data ?? []).forEach((l: { post_id: string }) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const firstLikerMap: Record<string, any> = {}
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ;(likesData.data ?? []).forEach((l: { post_id: string; profiles?: any }) => {
     likesMap[l.post_id] = (likesMap[l.post_id] ?? 0) + 1
+    if (!firstLikerMap[l.post_id] && l.profiles) {
+      firstLikerMap[l.post_id] = l.profiles
+    }
   })
   const userLikedSet = new Set((userLikesData.data ?? []).map((l: { post_id: string }) => l.post_id))
   const commentsMap: Record<string, number> = {}
@@ -75,6 +85,7 @@ export default async function CompetitionDetailPage({ params }: Props) {
       ? {
           ...entry.posts,
           likes_count: likesMap[entry.post_id] ?? 0,
+          first_liker: firstLikerMap[entry.post_id] ?? null,
           comments_count: commentsMap[entry.post_id] ?? 0,
           user_has_liked: userLikedSet.has(entry.post_id),
         }

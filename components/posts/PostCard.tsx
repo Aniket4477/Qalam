@@ -8,6 +8,7 @@ import { MessageCircle, BookOpen } from 'lucide-react'
 import LikeButton from './LikeButton'
 import CommentList from './CommentList'
 import SendPostButton from './SendPostButton'
+import LikedByText from './LikedByText'
 
 interface PostCardProps {
   post: PostWithAuthor
@@ -23,10 +24,20 @@ export default function PostCard({
   const isRtl = isRTL(post.language)
   const [showComments, setShowComments] = useState(false)
   const [commentsCount, setCommentsCount] = useState(post.comments_count ?? 0)
+  const [likesCount, setLikesCount] = useState(post.likes_count ?? 0)
+  const [userLiked, setUserLiked] = useState(post.user_has_liked ?? false)
 
   useEffect(() => {
     setCommentsCount(post.comments_count ?? 0)
   }, [post.comments_count])
+
+  useEffect(() => {
+    setLikesCount(post.likes_count ?? 0)
+  }, [post.likes_count])
+
+  useEffect(() => {
+    setUserLiked(post.user_has_liked ?? false)
+  }, [post.user_has_liked])
 
   return (
     <article className="post-card animate-fade-in">
@@ -132,9 +143,13 @@ export default function PostCard({
         <div className="flex items-center gap-3">
           <LikeButton
             postId={post.id}
-            initialCount={post.likes_count ?? 0}
-            initialLiked={post.user_has_liked ?? false}
+            initialCount={likesCount}
+            initialLiked={userLiked}
             variant="inline"
+            onLikeChange={(liked, count) => {
+              setUserLiked(liked)
+              setLikesCount(count)
+            }}
           />
           <button
             type="button"
@@ -172,6 +187,18 @@ export default function PostCard({
           </Link>
         </div>
       </div>
+
+      {/* Liked by social proof */}
+      {likesCount > 0 && (
+        <div className="mt-2.5 pt-0.5">
+          <LikedByText
+            postId={post.id}
+            likesCount={likesCount}
+            initialFirstLiker={post.first_liker}
+            userHasLiked={userLiked}
+          />
+        </div>
+      )}
 
       {/* Expandable comments section */}
       {showComments && (

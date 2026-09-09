@@ -63,7 +63,11 @@ export default async function ProfilePage({ params }: Props) {
     userFollowResult,
   ] = await Promise.all([
     postIds.length > 0
-      ? sb.from('likes').select('post_id').in('post_id', postIds)
+      ? sb
+          .from('likes')
+          .select('post_id, created_at, profiles(id, username, display_name, avatar_url)')
+          .in('post_id', postIds)
+          .order('created_at', { ascending: false })
       : Promise.resolve({ data: [] }),
     user && postIds.length > 0
       ? sb.from('likes').select('post_id').in('post_id', postIds).eq('user_id', user.id)
@@ -90,8 +94,14 @@ export default async function ProfilePage({ params }: Props) {
   const isFollowing = !!userFollowResult?.data
 
   const likesMap: Record<string, number> = {}
-  ;(likesResult.data ?? []).forEach((l: { post_id: string }) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const firstLikerMap: Record<string, any> = {}
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ;(likesResult.data ?? []).forEach((l: { post_id: string; profiles?: any }) => {
     likesMap[l.post_id] = (likesMap[l.post_id] ?? 0) + 1
+    if (!firstLikerMap[l.post_id] && l.profiles) {
+      firstLikerMap[l.post_id] = l.profiles
+    }
   })
 
   const userLikedSet = new Set(
@@ -106,6 +116,7 @@ export default async function ProfilePage({ params }: Props) {
   const enrichedPosts: PostWithAuthor[] = posts.map((post) => ({
     ...post,
     likes_count: likesMap[post.id] ?? 0,
+    first_liker: firstLikerMap[post.id] ?? null,
     comments_count: commentsMap[post.id] ?? 0,
     user_has_liked: userLikedSet.has(post.id),
   }))

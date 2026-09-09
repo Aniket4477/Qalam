@@ -3,11 +3,9 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { formatDate, POST_TYPE_LABELS, isRTL, getPreviewLines } from '@/lib/utils'
-import LikeButton from '@/components/posts/LikeButton'
 import CommentList from '@/components/posts/CommentList'
-import ShareButton from '@/components/posts/ShareButton'
-import SendPostButton from '@/components/posts/SendPostButton'
 import PostActions from '@/components/posts/PostActions'
+import PostDetailEngagement from '@/components/posts/PostDetailEngagement'
 import BackButton from '@/components/ui/BackButton'
 import type { Post, Profile, Comment } from '@/lib/supabase/types'
 
@@ -61,7 +59,7 @@ export default async function PostPage({ params }: Props) {
     notFound()
   }
 
-  const [likesResult, userLikeResult, commentsResult] = await Promise.all([
+  const [likesResult, userLikeResult, commentsResult, firstLikerResult] = await Promise.all([
     supabase.from('likes').select('*', { count: 'exact', head: true }).eq('post_id', id),
     user
       ? supabase.from('likes').select('id').eq('post_id', id).eq('user_id', user.id).single()
@@ -71,11 +69,20 @@ export default async function PostPage({ params }: Props) {
       .select('*, profiles(*)')
       .eq('post_id', id)
       .order('created_at', { ascending: true }),
+    supabase
+      .from('likes')
+      .select('user_id, profiles(*)')
+      .eq('post_id', id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ])
 
   const likesCount = likesResult.count ?? 0
   const userHasLiked = !!userLikeResult.data
   const comments = (commentsResult.data as unknown as (Comment & { profiles: Profile })[]) ?? []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const firstLiker = (firstLikerResult?.data as any)?.profiles as Profile | null
 
   const profile = post.profiles
   const rtl = isRTL(post.language)
@@ -181,28 +188,18 @@ export default async function PostPage({ params }: Props) {
         </div>
       )}
 
-      <div className="flex items-center gap-3 py-4 border-t border-b border-[hsl(var(--border))] mb-8 flex-wrap">
-        <LikeButton
-          postId={post.id}
-          initialCount={likesCount}
-          initialLiked={userHasLiked}
-        />
-        <SendPostButton
-          postId={post.id}
-          title={post.title ?? undefined}
-          authorName={profile?.display_name ?? 'Unknown'}
-          authorUsername={profile?.username ?? undefined}
-          authorAvatar={profile?.avatar_url ?? undefined}
-          preview={preview}
-          variant="button"
-        />
-        <ShareButton
-          title={post.title ?? ''}
-          author={profile?.display_name ?? 'Unknown'}
-          preview={preview}
-          url={postUrl}
-        />
-      </div>
+      <PostDetailEngagement
+        postId={post.id}
+        initialLikesCount={likesCount}
+        initialUserLiked={userHasLiked}
+        initialFirstLiker={firstLiker}
+        title={post.title ?? undefined}
+        authorName={profile?.display_name ?? 'Unknown'}
+        authorUsername={profile?.username ?? undefined}
+        authorAvatar={profile?.avatar_url ?? undefined}
+        preview={preview}
+        postUrl={postUrl}
+      />
 
       <CommentList postId={post.id} initialComments={comments} />
     </article>

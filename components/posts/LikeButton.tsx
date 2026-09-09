@@ -10,6 +10,7 @@ interface LikeButtonProps {
   initialCount: number
   initialLiked: boolean
   variant?: 'default' | 'inline'
+  onLikeChange?: (newLiked: boolean, newCount: number) => void
 }
 
 export default function LikeButton({
@@ -17,6 +18,7 @@ export default function LikeButton({
   initialCount,
   initialLiked,
   variant = 'default',
+  onLikeChange,
 }: LikeButtonProps) {
   const [liked, setLiked] = useState(initialLiked)
   const [count, setCount] = useState(initialCount)
@@ -52,8 +54,18 @@ export default function LikeButton({
       if (loading) return
 
       const newLiked = !liked
+      const nextCount = count + (newLiked ? 1 : -1)
       setLiked(newLiked)
-      setCount((c) => c + (newLiked ? 1 : -1))
+      setCount(nextCount)
+      onLikeChange?.(newLiked, nextCount)
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('post-like-updated', {
+            detail: { postId, liked: newLiked, count: nextCount },
+          })
+        )
+      }
+
       if (newLiked) {
         setPop(true)
         setTimeout(() => setPop(false), 400)
@@ -71,12 +83,21 @@ export default function LikeButton({
         }
       } catch {
         setLiked(!newLiked)
-        setCount((c) => c + (newLiked ? -1 : 1))
+        const rollbackCount = count
+        setCount(rollbackCount)
+        onLikeChange?.(!newLiked, rollbackCount)
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('post-like-updated', {
+              detail: { postId, liked: !newLiked, count: rollbackCount },
+            })
+          )
+        }
       } finally {
         setLoading(false)
       }
     },
-    [liked, loading, isAuthenticated, postId, supabase, sb]
+    [liked, count, loading, isAuthenticated, postId, supabase, sb, onLikeChange]
   )
 
   if (variant === 'inline') {

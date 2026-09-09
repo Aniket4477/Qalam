@@ -140,7 +140,11 @@ function ExploreContent() {
       const postIds = posts.map((p) => p.id)
 
       const [likesRes, userLikesRes, commentsRes] = await Promise.all([
-        sb.from('likes').select('post_id').in('post_id', postIds),
+        sb
+          .from('likes')
+          .select('post_id, created_at, profiles(id, username, display_name, avatar_url)')
+          .in('post_id', postIds)
+          .order('created_at', { ascending: false }),
         user
           ? sb.from('likes').select('post_id').in('post_id', postIds).eq('user_id', user.id)
           : Promise.resolve({ data: [] }),
@@ -148,8 +152,14 @@ function ExploreContent() {
       ])
 
       const likesMap: Record<string, number> = {}
-      ;(likesRes.data ?? []).forEach((l: { post_id: string }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const firstLikerMap: Record<string, any> = {}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(likesRes.data ?? []).forEach((l: { post_id: string; profiles?: any }) => {
         likesMap[l.post_id] = (likesMap[l.post_id] ?? 0) + 1
+        if (!firstLikerMap[l.post_id] && l.profiles) {
+          firstLikerMap[l.post_id] = l.profiles
+        }
       })
 
       const userLikedSet = new Set(
@@ -164,6 +174,7 @@ function ExploreContent() {
       const enriched = posts.map((p) => ({
         ...p,
         likes_count: likesMap[p.id] ?? 0,
+        first_liker: firstLikerMap[p.id] ?? null,
         comments_count: commentsMap[p.id] ?? 0,
         user_has_liked: userLikedSet.has(p.id),
       }))

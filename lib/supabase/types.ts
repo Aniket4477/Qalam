@@ -53,6 +53,7 @@ export interface PostWithAuthor extends Post {
   likes_count?: number
   comments_count?: number
   user_has_liked?: boolean
+  first_liker?: Profile | null
 }
 
 export interface Like {
