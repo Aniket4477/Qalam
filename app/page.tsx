@@ -155,8 +155,9 @@ async function FeedContent({ tab }: { tab: string }) {
   }
 
   const postIds = (posts as PostWithAuthor[]).map((p) => p.id)
+  const authorIds = Array.from(new Set((posts as PostWithAuthor[]).map((p) => p.author_id)))
 
-  const [likesData, userLikesData, commentsData] = await Promise.all([
+  const [likesData, userLikesData, commentsData, userFollowsData] = await Promise.all([
     sb
       .from('likes')
       .select('post_id, created_at, profiles(id, username, display_name, avatar_url)')
@@ -166,7 +167,12 @@ async function FeedContent({ tab }: { tab: string }) {
       ? sb.from('likes').select('post_id').in('post_id', postIds).eq('user_id', user.id)
       : Promise.resolve({ data: [] }),
     sb.from('comments').select('post_id').in('post_id', postIds),
+    user && authorIds.length > 0
+      ? sb.from('follows').select('following_id').eq('follower_id', user.id).in('following_id', authorIds)
+      : Promise.resolve({ data: [] }),
   ])
+
+  const followingSet = new Set((userFollowsData?.data ?? []).map((f: { following_id: string }) => f.following_id))
 
   const likesMap: Record<string, number> = {}
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -201,7 +207,12 @@ async function FeedContent({ tab }: { tab: string }) {
   return (
     <div className="space-y-4">
       {enrichedPosts.map((post) => (
-        <PostCard key={post.id} post={post} />
+        <PostCard
+          key={post.id}
+          post={post}
+          initialIsFollowing={followingSet.has(post.author_id)}
+          currentUserId={user?.id}
+        />
       ))}
     </div>
   )

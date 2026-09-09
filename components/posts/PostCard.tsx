@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 import type { PostWithAuthor } from '@/lib/supabase/types'
 import { cn, formatDate, truncateBody, POST_TYPE_LABELS, isRTL, isUserAdmin } from '@/lib/utils'
-import { MessageCircle, BookOpen, Shield } from 'lucide-react'
+import { MessageCircle, BookOpen, Shield, UserPlus, Loader2 } from 'lucide-react'
 import LikeButton from './LikeButton'
 import CommentList from './CommentList'
 import SendPostButton from './SendPostButton'
@@ -14,18 +15,130 @@ interface PostCardProps {
   post: PostWithAuthor
   showAuthor?: boolean
   variant?: 'default' | 'compact'
+  initialIsFollowing?: boolean
+  currentUserId?: string | null
 }
 
 export default function PostCard({
   post,
   showAuthor = true,
   variant = 'default',
+  initialIsFollowing,
+  currentUserId,
 }: PostCardProps) {
+  const supabase = useMemo(() => createClient(), [])
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sb = supabase as any
+
   const isRtl = isRTL(post.language)
   const [showComments, setShowComments] = useState(false)
   const [commentsCount, setCommentsCount] = useState(post.comments_count ?? 0)
   const [likesCount, setLikesCount] = useState(post.likes_count ?? 0)
   const [userLiked, setUserLiked] = useState(post.user_has_liked ?? false)
+
+  const [isFollowing, setIsFollowing] = useState(initialIsFollowing ?? false)
+  const [followLoading, setFollowLoading] = useState(false)
+  const [currentUid, setCurrentUid] = useState<string | null>(currentUserId ?? null)
+
+  // Sync initialIsFollowing prop if updated by parent
+  useEffect(() => {
+    if (initialIsFollowing !== undefined) {
+      setIsFollowing(initialIsFollowing)
+    }
+  }, [initialIsFollowing])
+
+  // Get current user ID if not explicitly provided
+  useEffect(() => {
+    if (currentUserId !== undefined) {
+      setCurrentUid(currentUserId)
+      return
+    }
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setCurrentUid(user.id)
+    })
+  }, [currentUserId, supabase])
+
+  // Verify follow state from DB if initialIsFollowing was not provided
+  useEffect(() => {
+    if (initialIsFollowing !== undefined) return
+    if (!currentUid || !post.author_id || currentUid === post.author_id) return
+
+    let isMounted = true
+    const verifyFollow = async () => {
+      try {
+        const { data, error } = await sb
+          .from('follows')
+          .select('id')
+          .eq('follower_id', currentUid)
+          .eq('following_id', post.author_id)
+          .maybeSingle()
+
+        if (!error && isMounted) {
+          setIsFollowing(!!data)
+        }
+      } catch {}
+    }
+
+    verifyFollow()
+    return () => {
+      isMounted = false
+    }
+  }, [currentUid, post.author_id, initialIsFollowing, sb])
+
+  // Listen to global follow state events from elsewhere in the app
+  useEffect(() => {
+    const handleGlobalFollowChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ targetUserId: string; isFollowing: boolean }>
+      if (customEvent.detail && customEvent.detail.targetUserId === post.author_id) {
+        setIsFollowing(customEvent.detail.isFollowing)
+      }
+    }
+
+    window.addEventListener('user-follow-changed', handleGlobalFollowChange)
+    return () => {
+      window.removeEventListener('user-follow-changed', handleGlobalFollowChange)
+    }
+  }, [post.author_id])
+
+  const handleFollow = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    if (!currentUid) {
+      window.location.href = `/login?redirectTo=${encodeURIComponent(window.location.pathname)}`
+      return
+    }
+
+    if (followLoading) return
+    setFollowLoading(true)
+    setIsFollowing(true) // Immediately update state so follow button vanishes ("shows nothing")
+
+    try {
+      const { error } = await sb.from('follows').insert({
+        follower_id: currentUid,
+        following_id: post.author_id,
+      })
+
+      if (error) {
+        setIsFollowing(false)
+      } else {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('user-follow-changed', {
+              detail: { targetUserId: post.author_id, isFollowing: true },
+            })
+          )
+        }
+      }
+    } catch {
+      setIsFollowing(false)
+    } finally {
+      setFollowLoading(false)
+    }
+  }
+
+  const isOwnPost = currentUid === post.author_id
+  const showFollowOption = !isOwnPost && !isFollowing
 
   useEffect(() => {
     setCommentsCount(post.comments_count ?? 0)
@@ -56,31 +169,51 @@ export default function PostCard({
       <div className="flex items-start justify-between gap-4">
         {/* Author info */}
         {showAuthor && post.profiles && (
-          <Link href={`/u/${post.profiles.username}`} className="flex items-center gap-2 shrink-0">
-            {post.profiles.avatar_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={post.profiles.avatar_url}
-                alt={post.profiles.display_name}
-                className="w-9 h-9 rounded-full object-cover"
-              />
-            ) : (
-              <div className="w-9 h-9 rounded-full bg-[hsl(var(--primary)/0.15)] flex items-center justify-center text-xs font-semibold text-[hsl(var(--primary))]">
-                {post.profiles.display_name.slice(0, 2).toUpperCase()}
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Link href={`/u/${post.profiles.username}`} className="flex items-center gap-2 shrink-0 group">
+              {post.profiles.avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={post.profiles.avatar_url}
+                  alt={post.profiles.display_name}
+                  className="w-9 h-9 rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-9 h-9 rounded-full bg-[hsl(var(--primary)/0.15)] flex items-center justify-center text-xs font-semibold text-[hsl(var(--primary))]">
+                  {post.profiles.display_name.slice(0, 2).toUpperCase()}
+                </div>
+              )}
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-sm font-medium leading-none group-hover:underline">{post.profiles.display_name}</p>
+                  {isUserAdmin(post.profiles) && (
+                    <span title="Official Administrator" className="inline-flex items-center text-amber-500">
+                      <Shield size={12} className="fill-amber-500/30" />
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">@{post.profiles.username}</p>
               </div>
-            )}
-            <div>
-              <div className="flex items-center gap-1.5">
-                <p className="text-sm font-medium leading-none">{post.profiles.display_name}</p>
-                {isUserAdmin(post.profiles) && (
-                  <span title="Official Administrator" className="inline-flex items-center text-amber-500">
-                    <Shield size={12} className="fill-amber-500/30" />
-                  </span>
+            </Link>
+
+            {/* Follow option — shown ONLY if not following; if following, shows nothing */}
+            {showFollowOption && (
+              <button
+                type="button"
+                onClick={handleFollow}
+                disabled={followLoading}
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium text-[hsl(var(--primary))] bg-[hsl(var(--primary)/0.08)] hover:bg-[hsl(var(--primary)/0.16)] active:scale-95 transition-all cursor-pointer border border-[hsl(var(--primary)/0.25)] shadow-2xs shrink-0"
+                title={`Follow ${post.profiles.display_name}`}
+              >
+                {followLoading ? (
+                  <Loader2 size={10} className="animate-spin" />
+                ) : (
+                  <UserPlus size={10} />
                 )}
-              </div>
-              <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">@{post.profiles.username}</p>
-            </div>
-          </Link>
+                <span>Follow</span>
+              </button>
+            )}
+          </div>
         )}
 
         {/* Type badge + language */}
