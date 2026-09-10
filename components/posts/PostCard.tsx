@@ -10,6 +10,11 @@ import LikeButton from './LikeButton'
 import CommentList from './CommentList'
 import SendPostButton from './SendPostButton'
 import LikedByText from './LikedByText'
+import {
+  getPostTheme,
+  getThemeFromTags,
+  cleanDisplayTags,
+} from '@/lib/postThemes'
 
 interface PostCardProps {
   post: PostWithAuthor
@@ -140,6 +145,15 @@ export default function PostCard({
   const isOwnPost = currentUid === post.author_id
   const showFollowOption = !isOwnPost && !isFollowing
 
+  const postTheme = useMemo(() => {
+    const themeId = post.theme || getThemeFromTags(post.tags) || 'classic'
+    return getPostTheme(themeId)
+  }, [post.theme, post.tags])
+
+  const displayTags = useMemo(() => {
+    return cleanDisplayTags(post.tags)
+  }, [post.tags])
+
   useEffect(() => {
     setCommentsCount(post.comments_count ?? 0)
   }, [post.comments_count])
@@ -153,7 +167,7 @@ export default function PostCard({
   }, [post.user_has_liked])
 
   return (
-    <article className="post-card animate-fade-in">
+    <article className={cn('post-card animate-fade-in transition-all', postTheme.cardClass)}>
       {/* Cover image */}
       {post.cover_url && variant === 'default' && (
         <Link href={`/post/${post.id}`} className="block -mx-6 -mt-6 mb-4">
@@ -185,14 +199,18 @@ export default function PostCard({
               )}
               <div>
                 <div className="flex items-center gap-1.5">
-                  <p className="text-sm font-medium leading-none group-hover:underline">{post.profiles.display_name}</p>
+                  <p className={cn('text-sm font-medium leading-none group-hover:underline', postTheme.authorClass)}>
+                    {post.profiles.display_name}
+                  </p>
                   {isUserAdmin(post.profiles) && (
                     <span title="Official Administrator" className="inline-flex items-center text-amber-500">
                       <Shield size={12} className="fill-amber-500/30" />
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">@{post.profiles.username}</p>
+                <p className={cn('text-xs mt-0.5 opacity-80', postTheme.mutedTextClass)}>
+                  @{post.profiles.username}
+                </p>
               </div>
             </Link>
 
@@ -219,11 +237,11 @@ export default function PostCard({
         {/* Type badge + language */}
         <div className="flex items-center gap-1.5 shrink-0 ml-auto">
           {post.language !== 'English' && (
-            <span className="text-xs px-2 py-0.5 rounded-full border border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))]">
+            <span className={cn('text-xs px-2 py-0.5 rounded-full border', postTheme.tagClass)}>
               {post.language}
             </span>
           )}
-          <span className="text-xs px-2 py-0.5 rounded-full bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))]">
+          <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', postTheme.badgeClass)}>
             {POST_TYPE_LABELS[post.type] ?? post.type}
           </span>
         </div>
@@ -234,8 +252,9 @@ export default function PostCard({
         <Link href={`/post/${post.id}`}>
           <h2
             className={cn(
-              'mt-3 font-semibold text-lg hover:text-[hsl(var(--primary))] transition-colors',
+              'mt-3 font-semibold text-lg hover:opacity-85 transition-colors',
               'font-serif leading-snug',
+              postTheme.titleClass,
               isRtl && 'text-right'
             )}
             style={{ fontFamily: 'Lora, Georgia, serif' }}
@@ -250,7 +269,8 @@ export default function PostCard({
       <Link href={`/post/${post.id}`} className="block mt-2">
         <p
           className={cn(
-            'text-[hsl(var(--muted-foreground))] text-sm leading-relaxed hover:text-[hsl(var(--foreground))] transition-colors line-clamp-4 whitespace-pre-line',
+            'text-sm leading-relaxed transition-colors line-clamp-4 whitespace-pre-line',
+            postTheme.bodyClass,
             isRtl && 'text-right'
           )}
           dir={isRtl ? 'rtl' : 'ltr'}
@@ -260,13 +280,16 @@ export default function PostCard({
       </Link>
 
       {/* Tags */}
-      {post.tags && post.tags.length > 0 && variant === 'default' && (
+      {displayTags.length > 0 && variant === 'default' && (
         <div className="flex flex-wrap gap-1.5 mt-3">
-          {post.tags.slice(0, 4).map((tag) => (
+          {displayTags.slice(0, 4).map((tag) => (
             <Link
               key={tag}
               href={`/explore?tag=${encodeURIComponent(tag)}`}
-              className="text-xs px-2 py-0.5 rounded-full text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] hover:bg-[hsl(var(--accent))] transition-colors border border-[hsl(var(--border))]"
+              className={cn(
+                'text-xs px-2 py-0.5 rounded-full border transition-colors',
+                postTheme.tagClass
+              )}
             >
               #{tag}
             </Link>
@@ -275,8 +298,8 @@ export default function PostCard({
       )}
 
       {/* Footer: date + engagement */}
-      <div className="flex items-center justify-between mt-4 pt-3 border-t border-[hsl(var(--border))]">
-        <span className="text-xs text-[hsl(var(--muted-foreground))]">
+      <div className={cn('flex items-center justify-between mt-4 pt-3 border-t', postTheme.footerBorderClass)}>
+        <span className={cn('text-xs opacity-80', postTheme.mutedTextClass)}>
           {formatDate(post.created_at)}
         </span>
 
@@ -299,10 +322,10 @@ export default function PostCard({
               setShowComments(!showComments)
             }}
             className={cn(
-              'flex items-center gap-1 text-xs transition-colors py-0.5 px-1 rounded hover:bg-[hsl(var(--accent))]',
+              'flex items-center gap-1 text-xs transition-colors py-0.5 px-1.5 rounded',
               showComments
                 ? 'text-[hsl(var(--primary))] font-medium'
-                : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
+                : postTheme.actionClass
             )}
             aria-label="Toggle comments"
           >
@@ -320,7 +343,10 @@ export default function PostCard({
           />
           <Link
             href={`/post/${post.id}`}
-            className="flex items-center gap-1 text-xs text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors py-0.5 px-1 rounded hover:bg-[hsl(var(--accent))]"
+            className={cn(
+              'flex items-center gap-1 text-xs transition-colors py-0.5 px-1.5 rounded',
+              postTheme.actionClass
+            )}
           >
             <BookOpen size={15} />
             <span>Read</span>
@@ -343,7 +369,7 @@ export default function PostCard({
       {/* Expandable comments section */}
       {showComments && (
         <div
-          className="mt-4 pt-4 border-t border-[hsl(var(--border))] animate-fade-in"
+          className={cn('mt-4 pt-4 border-t animate-fade-in', postTheme.footerBorderClass)}
           onClick={(e) => e.stopPropagation()}
         >
           <CommentList

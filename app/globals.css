@@ -216,8 +216,10 @@ body {
    POST CARD
    ============================================================ */
 .post-card {
-  border: 1px solid hsl(var(--border));
-  background: hsl(var(--card));
+  border-width: 1px;
+  border-style: solid;
+  border-color: hsl(var(--border));
+  background-color: hsl(var(--card));
   border-radius: var(--radius);
   padding: 1.5rem;
   transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
@@ -225,7 +227,98 @@ body {
 .post-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px -4px hsl(var(--foreground) / 0.1);
-  border-color: hsl(var(--primary) / 0.4);
+}
+
+/* ============================================================
+   POST THEMES (Card & Atmosphere)
+   ============================================================ */
+.theme-parchment {
+  background: linear-gradient(135deg, #fdf9f0 0%, #f9f3e3 50%, #f4e8cf 100%) !important;
+  border-color: #e6d0a7 !important;
+  color: #3d2714 !important;
+}
+.dark .theme-parchment {
+  background: linear-gradient(135deg, #21190f 0%, #2a2014 50%, #1a130a 100%) !important;
+  border-color: #543f26 !important;
+  color: #f7e4ca !important;
+}
+.theme-parchment:hover {
+  border-color: #cb9f5a !important;
+}
+
+.theme-midnight {
+  background: linear-gradient(135deg, #090e1a 0%, #0f172a 45%, #1e1b4b 100%) !important;
+  border-color: rgba(99, 102, 241, 0.35) !important;
+  color: #f1f5f9 !important;
+}
+.theme-midnight:hover {
+  border-color: rgba(99, 102, 241, 0.65) !important;
+  box-shadow: 0 8px 28px -4px rgba(99, 102, 241, 0.25) !important;
+}
+
+.theme-romance {
+  background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 50%, #fce7f3 100%) !important;
+  border-color: #fecdd3 !important;
+  color: #4c0519 !important;
+}
+.dark .theme-romance {
+  background: linear-gradient(135deg, #2a0e16 0%, #36121c 50%, #240816 100%) !important;
+  border-color: #881337 !important;
+  color: #ffe4e6 !important;
+}
+.theme-romance:hover {
+  border-color: #fb7185 !important;
+}
+
+.theme-nature {
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 50%, #e6f9f0 100%) !important;
+  border-color: #a7f3d0 !important;
+  color: #064e3b !important;
+}
+.dark .theme-nature {
+  background: linear-gradient(135deg, #072418 0%, #0a2f20 50%, #051b12 100%) !important;
+  border-color: #065f46 !important;
+  color: #d1fae5 !important;
+}
+.theme-nature:hover {
+  border-color: #34d399 !important;
+}
+
+.theme-sunset {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 40%, #ffedd5 100%) !important;
+  border-color: #fde68a !important;
+  color: #451a03 !important;
+}
+.dark .theme-sunset {
+  background: linear-gradient(135deg, #2a1708 0%, #351e0a 50%, #220f02 100%) !important;
+  border-color: #78350f !important;
+  color: #fef3c7 !important;
+}
+.theme-sunset:hover {
+  border-color: #f59e0b !important;
+}
+
+.theme-mystic {
+  background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 50%, #ede9fe 100%) !important;
+  border-color: #ddd6fe !important;
+  color: #3b0764 !important;
+}
+.dark .theme-mystic {
+  background: linear-gradient(135deg, #1b0d2a 0%, #241038 50%, #160822 100%) !important;
+  border-color: #6b21a8 !important;
+  color: #f3e8ff !important;
+}
+.theme-mystic:hover {
+  border-color: #a855f7 !important;
+}
+
+.theme-noir {
+  background: linear-gradient(135deg, #18181b 0%, #121214 50%, #09090b 100%) !important;
+  border-color: #3f3f46 !important;
+  color: #f4f4f5 !important;
+}
+.theme-noir:hover {
+  border-color: #71717a !important;
 }
 
 /* ============================================================

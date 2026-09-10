@@ -42,6 +42,7 @@ export interface Post {
   type: PostType
   language: string
   tags: string[]
+  theme?: string | null
   cover_url: string | null
   status: PostStatus
   created_at: string

@@ -2,12 +2,17 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
-import { formatDate, POST_TYPE_LABELS, isRTL, getPreviewLines } from '@/lib/utils'
+import { formatDate, POST_TYPE_LABELS, isRTL, getPreviewLines, cn } from '@/lib/utils'
 import CommentList from '@/components/posts/CommentList'
 import PostActions from '@/components/posts/PostActions'
 import PostDetailEngagement from '@/components/posts/PostDetailEngagement'
 import BackButton from '@/components/ui/BackButton'
 import type { Post, Profile, Comment } from '@/lib/supabase/types'
+import {
+  getPostTheme,
+  getThemeFromTags,
+  cleanDisplayTags,
+} from '@/lib/postThemes'
 
 type PostWithProfile = Post & { profiles: Profile }
 
@@ -87,6 +92,9 @@ export default async function PostPage({ params }: Props) {
   const profile = post.profiles
   const rtl = isRTL(post.language)
 
+  const postTheme = getPostTheme(post.theme || getThemeFromTags(post.tags) || 'classic')
+  const displayTags = cleanDisplayTags(post.tags)
+
   const postUrl = `${process.env.NEXT_PUBLIC_SITE_URL ?? ''}/post/${id}`
   const preview = getPreviewLines(post.body)
 
@@ -103,90 +111,99 @@ export default async function PostPage({ params }: Props) {
         />
       )}
 
-      <div className="flex items-center gap-2 mb-4">
-        <span className="text-xs px-2 py-0.5 rounded-full bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))]">
-          {POST_TYPE_LABELS[post.type] ?? post.type}
-        </span>
-        {post.language !== 'English' && (
-          <span className="text-xs px-2 py-0.5 rounded-full border border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))]">
-            {post.language}
+      {/* Themed Reading Card Container */}
+      <div className={cn('rounded-2xl p-6 sm:p-8 my-6 border transition-all shadow-xs', postTheme.cardClass)}>
+        <div className="flex items-center gap-2 mb-4">
+          <span className={cn('text-xs px-2.5 py-0.5 rounded-full font-medium', postTheme.badgeClass)}>
+            {POST_TYPE_LABELS[post.type] ?? post.type}
           </span>
-        )}
-        {post.status === 'draft' && (
-          <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400">
-            Draft
-          </span>
-        )}
-      </div>
-
-      {post.title && (
-        <h1
-          className="text-3xl md:text-4xl font-bold mb-6 leading-snug"
-          style={{ fontFamily: 'Lora, Georgia, serif' }}
-          dir={rtl ? 'rtl' : 'ltr'}
-        >
-          {post.title}
-        </h1>
-      )}
-
-      {profile && (
-        <div className="flex items-center gap-3 mb-8 pb-6 border-b border-[hsl(var(--border))]">
-          <Link href={`/u/${profile.username}`}>
-            {profile.avatar_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={profile.avatar_url}
-                alt={profile.display_name}
-                className="w-10 h-10 rounded-full object-cover"
-              />
-            ) : (
-              <div className="w-10 h-10 rounded-full bg-[hsl(var(--primary)/0.15)] flex items-center justify-center text-sm font-semibold text-[hsl(var(--primary))]">
-                {profile.display_name.slice(0, 2).toUpperCase()}
-              </div>
-            )}
-          </Link>
-          <div>
-            <Link
-              href={`/u/${profile.username}`}
-              className="font-medium text-sm hover:text-[hsl(var(--primary))] transition-colors"
-            >
-              {profile.display_name}
-            </Link>
-            <p className="text-xs text-[hsl(var(--muted-foreground))]">
-              {formatDate(post.created_at)}
-              {post.updated_at !== post.created_at && ' · edited'}
-            </p>
-          </div>
-
-          {user?.id === post.author_id && (
-            <div className="ml-auto">
-              <PostActions postId={post.id} />
-            </div>
+          {post.language !== 'English' && (
+            <span className={cn('text-xs px-2.5 py-0.5 rounded-full border', postTheme.tagClass)}>
+              {post.language}
+            </span>
+          )}
+          {post.status === 'draft' && (
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400">
+              Draft
+            </span>
+          )}
+          {postTheme.id !== 'classic' && (
+            <span className={cn('text-xs ml-auto flex items-center gap-1.5 opacity-80', postTheme.mutedTextClass)}>
+              <span>{postTheme.emoji}</span>
+              <span>{postTheme.name} Theme</span>
+            </span>
           )}
         </div>
-      )}
 
-      <div
-        className="prose-poem prose-poem-lg mb-10"
-        dir={rtl ? 'rtl' : 'ltr'}
-        lang={post.language.toLowerCase()}
-      >
-        {post.body}
-      </div>
+        {post.title && (
+          <h1
+            className={cn('text-3xl md:text-4xl font-bold mb-6 leading-snug', postTheme.titleClass)}
+            style={{ fontFamily: 'Lora, Georgia, serif' }}
+            dir={rtl ? 'rtl' : 'ltr'}
+          >
+            {post.title}
+          </h1>
+        )}
 
-      {post.tags && post.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mb-8">
-          {post.tags.map((tag: string) => (
-            <Link
-              key={tag}
-              href={`/explore?tag=${encodeURIComponent(tag)}`}
-              className="text-xs px-2 py-0.5 rounded-full border border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] hover:border-[hsl(var(--primary)/0.3)] transition-colors"
-            >
-              #{tag}
+        {profile && (
+          <div className={cn('flex items-center gap-3 mb-8 pb-6 border-b', postTheme.footerBorderClass)}>
+            <Link href={`/u/${profile.username}`}>
+              {profile.avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={profile.avatar_url}
+                  alt={profile.display_name}
+                  className="w-10 h-10 rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-[hsl(var(--primary)/0.15)] flex items-center justify-center text-sm font-semibold text-[hsl(var(--primary))]">
+                  {profile.display_name.slice(0, 2).toUpperCase()}
+                </div>
+              )}
             </Link>
-          ))}
+            <div>
+              <Link
+                href={`/u/${profile.username}`}
+                className={cn('font-medium text-sm transition-colors hover:underline', postTheme.authorClass)}
+              >
+                {profile.display_name}
+              </Link>
+              <p className={cn('text-xs opacity-75', postTheme.mutedTextClass)}>
+                {formatDate(post.created_at)}
+                {post.updated_at !== post.created_at && ' · edited'}
+              </p>
+            </div>
+
+            {user?.id === post.author_id && (
+              <div className="ml-auto">
+                <PostActions postId={post.id} />
+              </div>
+            )}
+          </div>
+        )}
+
+        <div
+          className={cn('prose-poem prose-poem-lg mb-8', postTheme.bodyClass)}
+          dir={rtl ? 'rtl' : 'ltr'}
+          lang={post.language.toLowerCase()}
+        >
+          {post.body}
         </div>
-      )}
+
+        {displayTags.length > 0 && (
+          <div className={cn('flex flex-wrap gap-1.5 pt-4 border-t', postTheme.footerBorderClass)}>
+            {displayTags.map((tag: string) => (
+              <Link
+                key={tag}
+                href={`/explore?tag=${encodeURIComponent(tag)}`}
+                className={cn('text-xs px-2.5 py-0.5 rounded-full border transition-colors', postTheme.tagClass)}
+              >
+                #{tag}
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
 
       <PostDetailEngagement
         postId={post.id}

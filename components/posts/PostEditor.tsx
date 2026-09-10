@@ -4,8 +4,17 @@ import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { PostType, PostStatus } from '@/lib/supabase/types'
-import { POST_TYPE_LABELS, LANGUAGE_OPTIONS } from '@/lib/utils'
-import { Loader2, Eye, EyeOff, X, Plus } from 'lucide-react'
+import { POST_TYPE_LABELS, LANGUAGE_OPTIONS, cn } from '@/lib/utils'
+import { Loader2, Eye, EyeOff, X, Plus, Palette } from 'lucide-react'
+import {
+  POST_THEMES,
+  POST_THEME_LIST,
+  getPostTheme,
+  getThemeFromTags,
+  tagsWithTheme,
+  cleanDisplayTags,
+  type PostThemeId,
+} from '@/lib/postThemes'
 
 const POST_TYPES: PostType[] = ['poem', 'shayari', 'ghazal', 'haiku', 'free_verse', 'other']
 
@@ -24,6 +33,7 @@ export default function PostEditor({ postId }: PostEditorProps) {
   const [body, setBody] = useState('')
   const [type, setType] = useState<PostType>('poem')
   const [language, setLanguage] = useState('English')
+  const [theme, setTheme] = useState<PostThemeId>('classic')
   const [tagInput, setTagInput] = useState('')
   const [tags, setTags] = useState<string[]>([])
   const [status, setStatus] = useState<PostStatus>('draft')
@@ -31,6 +41,9 @@ export default function PostEditor({ postId }: PostEditorProps) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [preview, setPreview] = useState(false)
+
+  // Current selected theme metadata
+  const currentTheme = getPostTheme(theme)
 
   // Support ?edit=<id> param
   const editId = postId ?? searchParams.get('edit') ?? undefined
@@ -45,7 +58,9 @@ export default function PostEditor({ postId }: PostEditorProps) {
         setBody(data.body)
         setType(data.type)
         setLanguage(data.language)
-        setTags(data.tags)
+        const loadedTheme = (data.theme as PostThemeId) || getThemeFromTags(data.tags) || 'classic'
+        setTheme(loadedTheme)
+        setTags(cleanDisplayTags(data.tags ?? []))
         setStatus(data.status)
       }
       setLoading(false)
@@ -54,7 +69,9 @@ export default function PostEditor({ postId }: PostEditorProps) {
   }, [editId, sb])
 
   const addTag = () => {
-    const tag = tagInput.trim().toLowerCase().replace(/\s+/g, '-')
+    const raw = tagInput.trim().toLowerCase().replace(/\s+/g, '-')
+    // Ignore any internal theme prefixes if typed manually
+    const tag = raw.startsWith('theme:') ? raw.replace('theme:', '') : raw
     if (tag && !tags.includes(tag) && tags.length < 8) {
       setTags((prev) => [...prev, tag])
       setTagInput('')
@@ -82,29 +99,53 @@ export default function PostEditor({ postId }: PostEditorProps) {
 
     const competitionId = searchParams.get('competition')
 
-    const payload = {
+    // Always include theme in tags as fallback + in theme column for modern queries
+    const finalTags = tagsWithTheme(cleanDisplayTags(tags), theme)
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const payload: Record<string, any> = {
       title: title.trim() || null,
       body,
       type,
       language,
-      tags,
+      tags: finalTags,
+      theme,
       status: targetStatus,
     }
 
     let id = editId
     if (editId) {
-      const { error: updateError } = await sb.from('posts').update(payload).eq('id', editId)
+      let { error: updateError } = await sb.from('posts').update(payload).eq('id', editId)
+      // If DB migration hasn't been run yet and 'theme' column is missing, fallback gracefully
+      if (updateError && (updateError.message?.includes('theme') || updateError.code === '42703')) {
+        const { theme: _omitted, ...fallbackPayload } = payload
+        const fallback = await sb.from('posts').update(fallbackPayload).eq('id', editId)
+        updateError = fallback.error
+      }
       if (updateError) {
         setError(updateError.message)
         setSaving(false)
         return
       }
     } else {
-      const { data, error: insertError } = await sb
+      let { data, error: insertError } = await sb
         .from('posts')
         .insert({ ...payload, author_id: user.id })
         .select('id')
         .single()
+
+      // Fallback if 'theme' column not yet in DB
+      if (insertError && (insertError.message?.includes('theme') || insertError.code === '42703')) {
+        const { theme: _omitted, ...fallbackPayload } = payload
+        const fallback = await sb
+          .from('posts')
+          .insert({ ...fallbackPayload, author_id: user.id })
+          .select('id')
+          .single()
+        data = fallback.data
+        insertError = fallback.error
+      }
+
       if (insertError || !data) {
         setError(insertError?.message ?? 'Failed to save post.')
         setSaving(false)
@@ -153,17 +194,40 @@ export default function PostEditor({ postId }: PostEditorProps) {
       </div>
 
       {preview ? (
-        <div className="border border-[hsl(var(--border))] rounded-lg p-6 bg-[hsl(var(--card))]">
+        <div className={cn('border rounded-xl p-6 transition-all shadow-xs', currentTheme.cardClass)}>
+          <div className="flex items-center gap-2 mb-4">
+            <span className={cn('text-xs px-2.5 py-0.5 rounded-full font-medium', currentTheme.badgeClass)}>
+              {POST_TYPE_LABELS[type]}
+            </span>
+            {language !== 'English' && (
+              <span className={cn('text-xs px-2.5 py-0.5 rounded-full border', currentTheme.tagClass)}>
+                {language}
+              </span>
+            )}
+            <span className={cn('text-xs ml-auto flex items-center gap-1.5 opacity-80', currentTheme.mutedTextClass)}>
+              <span>{currentTheme.emoji}</span>
+              <span>{currentTheme.name} Theme</span>
+            </span>
+          </div>
+
           {title && (
-            <h2 className="text-2xl font-semibold mb-4" style={{ fontFamily: 'Lora, Georgia, serif' }}>
+            <h2
+              className={cn('text-2xl font-semibold mb-4', currentTheme.titleClass)}
+              style={{ fontFamily: 'Lora, Georgia, serif' }}
+            >
               {title}
             </h2>
           )}
-          <div className="prose-poem">{body || <span className="text-[hsl(var(--muted-foreground))]">Nothing written yet…</span>}</div>
+          <div className={cn('prose-poem', currentTheme.bodyClass)}>
+            {body || <span className="opacity-50">Nothing written yet…</span>}
+          </div>
           {tags.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-6">
               {tags.map((tag) => (
-                <span key={tag} className="text-xs px-2 py-0.5 rounded-full border border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))]">
+                <span
+                  key={tag}
+                  className={cn('text-xs px-2 py-0.5 rounded-full border transition-colors', currentTheme.tagClass)}
+                >
                   #{tag}
                 </span>
               ))}
@@ -192,7 +256,9 @@ export default function PostEditor({ postId }: PostEditorProps) {
 
           <div className="flex flex-wrap gap-3 pt-2 border-t border-[hsl(var(--border))]">
             <div className="flex-1 min-w-36">
-              <label htmlFor="postType" className="block text-xs font-medium text-[hsl(var(--muted-foreground))] mb-1">Type</label>
+              <label htmlFor="postType" className="block text-xs font-medium text-[hsl(var(--muted-foreground))] mb-1">
+                Type
+              </label>
               <select
                 id="postType"
                 value={type}
@@ -200,13 +266,17 @@ export default function PostEditor({ postId }: PostEditorProps) {
                 className="w-full px-3 py-2 text-sm bg-[hsl(var(--input)/0.5)] border border-[hsl(var(--border))] rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
               >
                 {POST_TYPES.map((t) => (
-                  <option key={t} value={t}>{POST_TYPE_LABELS[t]}</option>
+                  <option key={t} value={t}>
+                    {POST_TYPE_LABELS[t]}
+                  </option>
                 ))}
               </select>
             </div>
 
             <div className="flex-1 min-w-36">
-              <label htmlFor="language" className="block text-xs font-medium text-[hsl(var(--muted-foreground))] mb-1">Language</label>
+              <label htmlFor="language" className="block text-xs font-medium text-[hsl(var(--muted-foreground))] mb-1">
+                Language
+              </label>
               <select
                 id="language"
                 value={language}
@@ -214,19 +284,82 @@ export default function PostEditor({ postId }: PostEditorProps) {
                 className="w-full px-3 py-2 text-sm bg-[hsl(var(--input)/0.5)] border border-[hsl(var(--border))] rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
               >
                 {LANGUAGE_OPTIONS.map((l) => (
-                  <option key={l} value={l}>{l}</option>
+                  <option key={l} value={l}>
+                    {l}
+                  </option>
                 ))}
               </select>
             </div>
           </div>
 
+          {/* Theme selection */}
+          <div className="pt-3 border-t border-[hsl(var(--border))]">
+            <div className="flex items-center justify-between mb-2">
+              <label className="flex items-center gap-1.5 text-xs font-medium text-[hsl(var(--muted-foreground))]">
+                <Palette size={13} className="text-[hsl(var(--primary))]" />
+                <span>Card Theme & Atmosphere</span>
+              </label>
+              <span className="text-[11px] text-[hsl(var(--muted-foreground))]">
+                {currentTheme.emoji} {currentTheme.name} · {currentTheme.subtitle}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {POST_THEME_LIST.map((t) => {
+                const isSelected = theme === t.id
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setTheme(t.id)}
+                    className={cn(
+                      'flex items-center gap-2.5 p-2 rounded-lg border text-left transition-all relative overflow-hidden group cursor-pointer',
+                      isSelected
+                        ? 'border-[hsl(var(--primary))] ring-2 ring-[hsl(var(--primary)/0.25)] bg-[hsl(var(--accent)/0.5)] shadow-xs'
+                        : 'border-[hsl(var(--border))] hover:border-[hsl(var(--border)/0.9)] hover:bg-[hsl(var(--accent)/0.3)]'
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'w-6 h-6 rounded-full shrink-0 border border-black/10 dark:border-white/15 bg-gradient-to-br shadow-2xs flex items-center justify-center text-[11px] transition-transform group-hover:scale-105',
+                        t.swatchGradient
+                      )}
+                    >
+                      {t.emoji}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-medium leading-none truncate">
+                        {t.name}
+                      </p>
+                      <p className="text-[10px] text-[hsl(var(--muted-foreground))] truncate mt-0.5">
+                        {t.subtitle.split('&')[0].trim()}
+                      </p>
+                    </div>
+                    {isSelected && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))] shrink-0" />
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
           <div>
-            <label className="block text-xs font-medium text-[hsl(var(--muted-foreground))] mb-1">Tags (up to 8)</label>
+            <label className="block text-xs font-medium text-[hsl(var(--muted-foreground))] mb-1">
+              Tags (up to 8)
+            </label>
             <div className="flex flex-wrap gap-1.5 mb-2">
               {tags.map((tag) => (
-                <span key={tag} className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))]">
+                <span
+                  key={tag}
+                  className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))]"
+                >
                   #{tag}
-                  <button type="button" onClick={() => removeTag(tag)} className="hover:text-[hsl(var(--destructive))] transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => removeTag(tag)}
+                    className="hover:text-[hsl(var(--destructive))] transition-colors"
+                  >
                     <X size={11} />
                   </button>
                 </span>
@@ -238,13 +371,20 @@ export default function PostEditor({ postId }: PostEditorProps) {
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag() }
+                  if (e.key === 'Enter' || e.key === ',') {
+                    e.preventDefault()
+                    addTag()
+                  }
                 }}
                 placeholder="Add a tag, press Enter"
                 maxLength={32}
                 className="flex-1 px-3 py-1.5 text-sm bg-[hsl(var(--input)/0.5)] border border-[hsl(var(--border))] rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
               />
-              <button type="button" onClick={addTag} className="p-1.5 rounded-lg border border-[hsl(var(--border))] hover:bg-[hsl(var(--accent))] transition-colors">
+              <button
+                type="button"
+                onClick={addTag}
+                className="p-1.5 rounded-lg border border-[hsl(var(--border))] hover:bg-[hsl(var(--accent))] transition-colors"
+              >
                 <Plus size={16} />
               </button>
             </div>
