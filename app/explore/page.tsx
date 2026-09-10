@@ -9,7 +9,7 @@ import type { PostWithAuthor, PostType, Profile } from '@/lib/supabase/types'
 import { POST_TYPE_LABELS, LANGUAGE_OPTIONS } from '@/lib/utils'
 import { Search, SlidersHorizontal, X, Users, BookOpen, Sparkles, Loader2 } from 'lucide-react'
 
-const POST_TYPES: PostType[] = ['poem', 'shayari', 'ghazal', 'haiku', 'free_verse', 'other']
+const POST_TYPES: PostType[] = ['poem', 'shayari', 'ghazal', 'haiku', 'free_verse', 'quote', 'other']
 
 type TabType = 'all' | 'poets' | 'poems'
 

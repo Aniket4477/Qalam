@@ -11,7 +11,7 @@ CREATE EXTENSION IF NOT EXISTS "pg_trgm"; -- for full-text search
 -- ============================================================
 DO $$ BEGIN
   CREATE TYPE post_type AS ENUM (
-    'poem', 'shayari', 'ghazal', 'haiku', 'free_verse', 'other'
+    'poem', 'shayari', 'ghazal', 'haiku', 'free_verse', 'quote', 'other'
   );
 EXCEPTION
   WHEN duplicate_object THEN null;

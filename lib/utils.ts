@@ -74,6 +74,7 @@ export const POST_TYPE_LABELS: Record<string, string> = {
   ghazal: 'Ghazal',
   haiku: 'Haiku',
   free_verse: 'Free Verse',
+  quote: 'Quote',
   other: 'Other',
 }
 

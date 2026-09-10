@@ -7,6 +7,7 @@ export type PostType =
   | 'ghazal'
   | 'haiku'
   | 'free_verse'
+  | 'quote'
   | 'other'
 
 export type PostStatus = 'draft' | 'published'

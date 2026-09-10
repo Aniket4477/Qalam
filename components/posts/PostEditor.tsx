@@ -16,7 +16,7 @@ import {
   type PostThemeId,
 } from '@/lib/postThemes'
 
-const POST_TYPES: PostType[] = ['poem', 'shayari', 'ghazal', 'haiku', 'free_verse', 'other']
+const POST_TYPES: PostType[] = ['poem', 'shayari', 'ghazal', 'haiku', 'free_verse', 'quote', 'other']
 
 interface PostEditorProps {
   postId?: string

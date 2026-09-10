@@ -7,7 +7,7 @@ import type { PostType, CompetitionStatus } from '@/lib/supabase/types'
 import { POST_TYPE_LABELS, isUserAdmin } from '@/lib/utils'
 import { Loader2 } from 'lucide-react'
 
-const POST_TYPES: (PostType | null)[] = [null, 'poem', 'shayari', 'ghazal', 'haiku', 'free_verse', 'other']
+const POST_TYPES: (PostType | null)[] = [null, 'poem', 'shayari', 'ghazal', 'haiku', 'free_verse', 'quote', 'other']
 
 export default function NewCompetitionPage() {
   const router = useRouter()
