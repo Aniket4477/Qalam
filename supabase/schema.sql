@@ -82,12 +82,15 @@ CREATE INDEX IF NOT EXISTS posts_search_idx ON posts USING GIN(
 
 -- Auto-update updated_at
 CREATE OR REPLACE FUNCTION update_updated_at()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
 BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 DROP TRIGGER IF EXISTS posts_updated_at ON posts;
 CREATE TRIGGER posts_updated_at
@@ -522,10 +525,8 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('covers', 'covers', true)
 ON CONFLICT (id) DO UPDATE SET public = true;
 
--- Storage RLS policies for avatars
+-- Storage RLS policies for avatars (public bucket serves via CDN URL; drop broad listing SELECT)
 DROP POLICY IF EXISTS "avatars_public_select" ON storage.objects;
-CREATE POLICY "avatars_public_select" ON storage.objects
-  FOR SELECT USING (bucket_id = 'avatars');
 
 DROP POLICY IF EXISTS "avatars_auth_insert" ON storage.objects;
 CREATE POLICY "avatars_auth_insert" ON storage.objects
@@ -539,10 +540,8 @@ DROP POLICY IF EXISTS "avatars_auth_delete" ON storage.objects;
 CREATE POLICY "avatars_auth_delete" ON storage.objects
   FOR DELETE USING (bucket_id = 'avatars' AND auth.role() = 'authenticated');
 
--- Storage RLS policies for covers
+-- Storage RLS policies for covers (public bucket serves via CDN URL; drop broad listing SELECT)
 DROP POLICY IF EXISTS "covers_public_select" ON storage.objects;
-CREATE POLICY "covers_public_select" ON storage.objects
-  FOR SELECT USING (bucket_id = 'covers');
 
 DROP POLICY IF EXISTS "covers_auth_insert" ON storage.objects;
 CREATE POLICY "covers_auth_insert" ON storage.objects

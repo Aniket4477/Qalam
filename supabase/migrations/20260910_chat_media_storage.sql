@@ -7,9 +7,8 @@ VALUES ('chat_media', 'chat_media', true)
 ON CONFLICT (id) DO UPDATE SET public = true;
 
 -- Storage RLS policies for chat_media
+-- Public bucket serves files directly via CDN URL; drop broad SELECT policy on storage.objects
 DROP POLICY IF EXISTS "chat_media_public_select" ON storage.objects;
-CREATE POLICY "chat_media_public_select" ON storage.objects
-  FOR SELECT USING (bucket_id = 'chat_media');
 
 DROP POLICY IF EXISTS "chat_media_auth_insert" ON storage.objects;
 CREATE POLICY "chat_media_auth_insert" ON storage.objects
