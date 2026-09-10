@@ -67,6 +67,7 @@ export default function PostDetailEngagement({
           authorAvatar={authorAvatar}
           preview={preview}
           variant="button"
+          currentUserId={currentUserId}
         />
         <ShareButton
           title={title ?? ''}

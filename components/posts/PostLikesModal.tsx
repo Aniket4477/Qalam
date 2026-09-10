@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/lib/supabase/types'
@@ -30,10 +31,15 @@ export default function PostLikesModal({
   const [searchQuery, setSearchQuery] = useState('')
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set())
+  const [mounted, setMounted] = useState(false)
 
   const supabase = createClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sb = supabase as any
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Close on Escape key
   useEffect(() => {
@@ -125,11 +131,11 @@ export default function PostLikesModal({
     )
   }, [likers, searchQuery])
 
-  if (!isOpen) return null
+  if (!isOpen || !mounted) return null
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/65 backdrop-blur-md animate-fade-in"
       onClick={onClose}
     >
       <div
@@ -262,6 +268,7 @@ export default function PostLikesModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

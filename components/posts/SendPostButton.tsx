@@ -14,6 +14,7 @@ interface SendPostButtonProps {
   preview: string
   variant?: 'button' | 'icon'
   className?: string
+  currentUserId?: string | null
 }
 
 export default function SendPostButton({
@@ -25,6 +26,7 @@ export default function SendPostButton({
   preview,
   variant = 'button',
   className,
+  currentUserId,
 }: SendPostButtonProps) {
   const [open, setOpen] = useState(false)
 
@@ -76,6 +78,7 @@ export default function SendPostButton({
             author_avatar: authorAvatar || undefined,
             preview,
           }}
+          currentUserId={currentUserId}
           onClose={() => setOpen(false)}
         />
       )}

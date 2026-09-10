@@ -344,6 +344,7 @@ export default function PostCard({
             preview={truncateBody(post.body, 120)}
             variant="icon"
             className={postTheme.actionClass}
+            currentUserId={currentUid}
           />
           <Link
             href={`/post/${post.id}`}
