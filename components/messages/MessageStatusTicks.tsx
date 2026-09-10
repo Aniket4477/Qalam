@@ -13,7 +13,7 @@ interface MessageStatusTicksProps {
  * WhatsApp-style message delivery and read receipt status ticks:
  * - 'sending' / 'sent': Single subtle tick (✓)
  * - 'delivered': Double subtle tick (✓✓)
- * - 'read': Double highlighted cyan-blue tick (✓✓)
+ * - 'read': Double highlighted cyan-blue tick (✓✓) with authentic WhatsApp geometry
  */
 export default function MessageStatusTicks({
   status,
@@ -24,18 +24,18 @@ export default function MessageStatusTicks({
       <span
         title={status === 'sending' ? 'Sending…' : 'Sent'}
         aria-label={status === 'sending' ? 'Sending' : 'Sent'}
-        className={cn('inline-flex items-center shrink-0 select-none text-current opacity-75', className)}
+        className={cn('inline-flex items-center shrink-0 select-none text-current opacity-70', className)}
       >
         <svg
-          viewBox="0 0 12 11"
+          viewBox="0 0 13 12"
           fill="none"
           stroke="currentColor"
-          strokeWidth="1.8"
+          strokeWidth="1.9"
           strokeLinecap="round"
           strokeLinejoin="round"
           className="w-3 h-2.5"
         >
-          <path d="M1.5 5.5L4.5 8.5L10.5 2.5" />
+          <path d="M1.5 6L5 9.5L12 2.5" />
         </svg>
       </span>
     )
@@ -50,22 +50,24 @@ export default function MessageStatusTicks({
       className={cn(
         'inline-flex items-center shrink-0 select-none transition-colors duration-200',
         isRead
-          ? 'text-[#53bdeb] drop-shadow-[0_0_2px_rgba(83,189,235,0.4)]'
-          : 'text-current opacity-75',
+          ? 'text-[#53bdeb] drop-shadow-[0_0_1.5px_rgba(83,189,235,0.5)]'
+          : 'text-current opacity-70',
         className
       )}
     >
       <svg
-        viewBox="0 0 16 11"
+        viewBox="0 0 18 12"
         fill="none"
         stroke="currentColor"
-        strokeWidth="1.8"
+        strokeWidth="1.9"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="w-3.5 h-2.5"
+        className="w-4 h-2.5"
       >
-        <path d="M1 5.5L4 8.5L10.5 2" />
-        <path d="M5.5 8.5L14.5 2" />
+        {/* First tick (left) */}
+        <path d="M1.5 6L5 9.5L12 2.5" />
+        {/* Second tick (right, parallel and cleanly spaced) */}
+        <path d="M6 6L9.5 9.5L16.5 2.5" />
       </svg>
     </span>
   )
