@@ -625,7 +625,7 @@ CREATE INDEX IF NOT EXISTS group_messages_sender_idx ON public.group_messages(se
 CREATE OR REPLACE FUNCTION is_group_member(p_group_id UUID, p_user_id UUID)
 RETURNS BOOLEAN
 LANGUAGE sql
-SECURITY DEFINER
+SECURITY INVOKER
 SET search_path = public
 STABLE
 AS $$
@@ -638,7 +638,7 @@ $$;
 CREATE OR REPLACE FUNCTION is_group_admin(p_group_id UUID, p_user_id UUID)
 RETURNS BOOLEAN
 LANGUAGE sql
-SECURITY DEFINER
+SECURITY INVOKER
 SET search_path = public
 STABLE
 AS $$

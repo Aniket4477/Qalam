@@ -84,23 +84,42 @@ EXCEPTION
   WHEN undefined_function THEN null;
 END $$;
 
--- is_group_member()
-DO $$ BEGIN
-  REVOKE EXECUTE ON FUNCTION public.is_group_member(UUID, UUID) FROM PUBLIC, anon;
-  GRANT EXECUTE ON FUNCTION public.is_group_member(UUID, UUID) TO authenticated;
-  ALTER FUNCTION public.is_group_member(UUID, UUID) SET search_path = public;
-EXCEPTION
-  WHEN undefined_function THEN null;
-END $$;
+-- is_group_member() -> Switch to SECURITY INVOKER (removes SECURITY DEFINER warning)
+CREATE OR REPLACE FUNCTION public.is_group_member(p_group_id UUID, p_user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY INVOKER
+SET search_path = public
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.group_members
+    WHERE group_id = p_group_id AND user_id = p_user_id
+  );
+$$;
 
--- is_group_admin()
-DO $$ BEGIN
-  REVOKE EXECUTE ON FUNCTION public.is_group_admin(UUID, UUID) FROM PUBLIC, anon;
-  GRANT EXECUTE ON FUNCTION public.is_group_admin(UUID, UUID) TO authenticated;
-  ALTER FUNCTION public.is_group_admin(UUID, UUID) SET search_path = public;
-EXCEPTION
-  WHEN undefined_function THEN null;
-END $$;
+REVOKE EXECUTE ON FUNCTION public.is_group_member(UUID, UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.is_group_member(UUID, UUID) TO authenticated;
+
+-- is_group_admin() -> Switch to SECURITY INVOKER (removes SECURITY DEFINER warning)
+CREATE OR REPLACE FUNCTION public.is_group_admin(p_group_id UUID, p_user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY INVOKER
+SET search_path = public
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.group_members
+    WHERE group_id = p_group_id AND user_id = p_user_id AND role = 'admin'
+  ) OR EXISTS (
+    SELECT 1 FROM public.groups
+    WHERE id = p_group_id AND created_by = p_user_id
+  );
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.is_group_admin(UUID, UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.is_group_admin(UUID, UUID) TO authenticated;
 
 -- rls_auto_enable() (if defined in project)
 DO $$ BEGIN
