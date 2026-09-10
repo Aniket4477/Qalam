@@ -11,6 +11,7 @@ interface LikeButtonProps {
   initialLiked: boolean
   variant?: 'default' | 'inline'
   onLikeChange?: (newLiked: boolean, newCount: number) => void
+  className?: string
 }
 
 export default function LikeButton({
@@ -19,6 +20,7 @@ export default function LikeButton({
   initialLiked,
   variant = 'default',
   onLikeChange,
+  className,
 }: LikeButtonProps) {
   const [liked, setLiked] = useState(initialLiked)
   const [count, setCount] = useState(initialCount)
@@ -110,7 +112,8 @@ export default function LikeButton({
           liked
             ? 'text-[hsl(var(--primary))] font-medium'
             : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))]',
-          loading && 'opacity-60 cursor-not-allowed'
+          loading && 'opacity-60 cursor-not-allowed',
+          className
         )}
         aria-label={liked ? 'Unlike this post' : 'Like this post'}
       >
@@ -136,7 +139,8 @@ export default function LikeButton({
         liked
           ? 'border-[hsl(var(--primary)/0.5)] bg-[hsl(var(--primary)/0.08)] text-[hsl(var(--primary))]'
           : 'border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--primary)/0.3)] hover:text-[hsl(var(--primary))]',
-        loading && 'opacity-60 cursor-not-allowed'
+        loading && 'opacity-60 cursor-not-allowed',
+        className
       )}
       aria-label={liked ? 'Unlike this post' : 'Like this post'}
     >

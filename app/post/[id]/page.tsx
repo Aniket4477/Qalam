@@ -128,7 +128,7 @@ export default async function PostPage({ params }: Props) {
             </span>
           )}
           {postTheme.id !== 'classic' && (
-            <span className={cn('text-xs ml-auto flex items-center gap-1.5 opacity-80', postTheme.mutedTextClass)}>
+            <span className={cn('text-xs ml-auto flex items-center gap-1.5 font-medium', postTheme.mutedTextClass)}>
               <span>{postTheme.emoji}</span>
               <span>{postTheme.name} Theme</span>
             </span>
@@ -168,7 +168,7 @@ export default async function PostPage({ params }: Props) {
               >
                 {profile.display_name}
               </Link>
-              <p className={cn('text-xs opacity-75', postTheme.mutedTextClass)}>
+              <p className={cn('text-xs font-medium', postTheme.mutedTextClass)}>
                 {formatDate(post.created_at)}
                 {post.updated_at !== post.created_at && ' · edited'}
               </p>

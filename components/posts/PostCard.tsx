@@ -208,7 +208,7 @@ export default function PostCard({
                     </span>
                   )}
                 </div>
-                <p className={cn('text-xs mt-0.5 opacity-80', postTheme.mutedTextClass)}>
+                <p className={cn('text-xs mt-0.5 font-medium', postTheme.mutedTextClass)}>
                   @{post.profiles.username}
                 </p>
               </div>
@@ -299,7 +299,7 @@ export default function PostCard({
 
       {/* Footer: date + engagement */}
       <div className={cn('flex items-center justify-between mt-4 pt-3 border-t', postTheme.footerBorderClass)}>
-        <span className={cn('text-xs opacity-80', postTheme.mutedTextClass)}>
+        <span className={cn('text-xs font-medium', postTheme.mutedTextClass)}>
           {formatDate(post.created_at)}
         </span>
 
@@ -309,6 +309,7 @@ export default function PostCard({
             initialCount={likesCount}
             initialLiked={userLiked}
             variant="inline"
+            className={postTheme.actionClass}
             onLikeChange={(liked, count) => {
               setUserLiked(liked)
               setLikesCount(count)

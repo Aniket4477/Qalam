@@ -232,65 +232,149 @@ body {
 /* ============================================================
    POST THEMES (Card & Atmosphere)
    ============================================================ */
+/* ============================================================
+   POST THEMES (Card & Atmosphere)
+   ============================================================ */
 .theme-parchment {
-  background: linear-gradient(135deg, #fdf9f0 0%, #f9f3e3 50%, #f4e8cf 100%) !important;
-  border-color: #e6d0a7 !important;
-  color: #3d2714 !important;
+  --foreground: 28 65% 10% !important;
+  --muted-foreground: 28 50% 25% !important;
+  --primary: 25 60% 35% !important;
+  --primary-foreground: 38 70% 95% !important;
+  --border: 35 45% 72% !important;
+  --accent: 35 45% 88% !important;
+  --accent-foreground: 28 65% 15% !important;
+  --card: 38 40% 95% !important;
+  --card-foreground: 28 65% 10% !important;
+  background: linear-gradient(135deg, #fdf8eb 0%, #f6edd4 50%, #eee0bf 100%) !important;
+  border-color: #d6be90 !important;
+  color: #241508 !important;
 }
 .dark .theme-parchment {
-  background: linear-gradient(135deg, #21190f 0%, #2a2014 50%, #1a130a 100%) !important;
-  border-color: #543f26 !important;
-  color: #f7e4ca !important;
+  --foreground: 38 70% 93% !important;
+  --muted-foreground: 36 50% 68% !important;
+  --primary: 35 65% 60% !important;
+  --primary-foreground: 25 60% 10% !important;
+  --border: 30 35% 26% !important;
+  --accent: 30 35% 18% !important;
+  --accent-foreground: 38 60% 88% !important;
+  --card: 30 30% 12% !important;
+  --card-foreground: 38 70% 93% !important;
+  background: linear-gradient(135deg, #24190f 0%, #1d130a 100%) !important;
+  border-color: #574028 !important;
+  color: #fcf2df !important;
 }
 .theme-parchment:hover {
   border-color: #cb9f5a !important;
 }
 
 .theme-midnight {
-  background: linear-gradient(135deg, #090e1a 0%, #0f172a 45%, #1e1b4b 100%) !important;
-  border-color: rgba(99, 102, 241, 0.35) !important;
-  color: #f1f5f9 !important;
+  --foreground: 210 40% 98% !important;
+  --muted-foreground: 228 95% 85% !important;
+  --primary: 235 90% 72% !important;
+  --primary-foreground: 235 90% 10% !important;
+  --border: 235 50% 35% !important;
+  --accent: 235 60% 22% !important;
+  --accent-foreground: 225 100% 93% !important;
+  --card: 225 50% 10% !important;
+  --card-foreground: 210 40% 98% !important;
+  background: linear-gradient(135deg, #070c18 0%, #0d1527 45%, #18163b 100%) !important;
+  border-color: rgba(99, 102, 241, 0.45) !important;
+  color: #f8fafc !important;
 }
 .theme-midnight:hover {
-  border-color: rgba(99, 102, 241, 0.65) !important;
-  box-shadow: 0 8px 28px -4px rgba(99, 102, 241, 0.25) !important;
+  border-color: rgba(99, 102, 241, 0.75) !important;
+  box-shadow: 0 8px 30px -4px rgba(99, 102, 241, 0.3) !important;
 }
 
 .theme-romance {
-  background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 50%, #fce7f3 100%) !important;
-  border-color: #fecdd3 !important;
-  color: #4c0519 !important;
+  --foreground: 345 80% 12% !important;
+  --muted-foreground: 340 75% 26% !important;
+  --primary: 340 75% 35% !important;
+  --primary-foreground: 0 0% 100% !important;
+  --border: 345 55% 76% !important;
+  --accent: 340 65% 90% !important;
+  --accent-foreground: 340 85% 18% !important;
+  --card: 345 60% 96% !important;
+  --card-foreground: 345 80% 12% !important;
+  background: linear-gradient(135deg, #fff0f3 0%, #ffe4e8 50%, #fcd9e2 100%) !important;
+  border-color: #f4a0b8 !important;
+  color: #26040d !important;
 }
 .dark .theme-romance {
-  background: linear-gradient(135deg, #2a0e16 0%, #36121c 50%, #240816 100%) !important;
+  --foreground: 350 100% 97% !important;
+  --muted-foreground: 340 85% 74% !important;
+  --primary: 340 85% 65% !important;
+  --primary-foreground: 340 85% 10% !important;
+  --border: 340 50% 32% !important;
+  --accent: 340 60% 20% !important;
+  --accent-foreground: 340 80% 92% !important;
+  --card: 340 60% 14% !important;
+  --card-foreground: 350 100% 97% !important;
+  background: linear-gradient(135deg, #2b0b15 0%, #3a0e1e 50%, #1f060e 100%) !important;
   border-color: #881337 !important;
-  color: #ffe4e6 !important;
+  color: #fff1f3 !important;
 }
 .theme-romance:hover {
-  border-color: #fb7185 !important;
+  border-color: #f43f5e !important;
 }
 
 .theme-nature {
-  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 50%, #e6f9f0 100%) !important;
-  border-color: #a7f3d0 !important;
-  color: #064e3b !important;
+  --foreground: 150 85% 9% !important;
+  --muted-foreground: 145 65% 22% !important;
+  --primary: 150 70% 28% !important;
+  --primary-foreground: 138 80% 98% !important;
+  --border: 145 45% 70% !important;
+  --accent: 145 50% 90% !important;
+  --accent-foreground: 150 80% 15% !important;
+  --card: 145 45% 96% !important;
+  --card-foreground: 150 85% 9% !important;
+  background: linear-gradient(135deg, #f2fbf5 0%, #e6f7ec 50%, #daf2e3 100%) !important;
+  border-color: #86efac !important;
+  color: #032612 !important;
 }
 .dark .theme-nature {
-  background: linear-gradient(135deg, #072418 0%, #0a2f20 50%, #051b12 100%) !important;
+  --foreground: 138 80% 97% !important;
+  --muted-foreground: 155 70% 68% !important;
+  --primary: 152 75% 55% !important;
+  --primary-foreground: 155 80% 10% !important;
+  --border: 155 50% 25% !important;
+  --accent: 155 50% 16% !important;
+  --accent-foreground: 140 70% 90% !important;
+  --card: 155 50% 11% !important;
+  --card-foreground: 138 80% 97% !important;
+  background: linear-gradient(135deg, #072218 0%, #051a12 100%) !important;
   border-color: #065f46 !important;
-  color: #d1fae5 !important;
+  color: #f0fdf4 !important;
 }
 .theme-nature:hover {
-  border-color: #34d399 !important;
+  border-color: #22c55e !important;
 }
 
 .theme-sunset {
-  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 40%, #ffedd5 100%) !important;
-  border-color: #fde68a !important;
-  color: #451a03 !important;
+  --foreground: 20 90% 9% !important;
+  --muted-foreground: 22 80% 24% !important;
+  --primary: 25 85% 38% !important;
+  --primary-foreground: 45 95% 95% !important;
+  --border: 35 60% 72% !important;
+  --accent: 40 80% 90% !important;
+  --accent-foreground: 20 85% 15% !important;
+  --card: 35 60% 96% !important;
+  --card-foreground: 20 90% 9% !important;
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 45%, #fed7aa 100%) !important;
+  border-color: #fcd34d !important;
+  color: #2c1102 !important;
 }
 .dark .theme-sunset {
-  background: linear-gradient(135deg, #2a1708 0%, #351e0a 50%, #220f02 100%) !important;
+  --foreground: 45 95% 92% !important;
+  --muted-foreground: 36 90% 66% !important;
+  --primary: 30 90% 55% !important;
+  --primary-foreground: 25 90% 10% !important;
+  --border: 25 60% 28% !important;
+  --accent: 25 60% 18% !important;
+  --accent-foreground: 40 90% 90% !important;
+  --card: 25 50% 11% !important;
+  --card-foreground: 45 95% 92% !important;
+  background: linear-gradient(135deg, #2b1404 0%, #1c0d02 100%) !important;
   border-color: #78350f !important;
   color: #fef3c7 !important;
 }
@@ -299,26 +383,131 @@ body {
 }
 
 .theme-mystic {
+  --foreground: 275 85% 10% !important;
+  --muted-foreground: 270 70% 30% !important;
+  --primary: 270 75% 42% !important;
+  --primary-foreground: 270 100% 98% !important;
+  --border: 270 50% 75% !important;
+  --accent: 270 60% 92% !important;
+  --accent-foreground: 275 80% 18% !important;
+  --card: 270 50% 96% !important;
+  --card-foreground: 275 85% 10% !important;
   background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 50%, #ede9fe 100%) !important;
-  border-color: #ddd6fe !important;
-  color: #3b0764 !important;
+  border-color: #c084fc !important;
+  color: #220336 !important;
 }
 .dark .theme-mystic {
-  background: linear-gradient(135deg, #1b0d2a 0%, #241038 50%, #160822 100%) !important;
+  --foreground: 270 100% 97% !important;
+  --muted-foreground: 270 90% 80% !important;
+  --primary: 270 85% 68% !important;
+  --primary-foreground: 270 85% 10% !important;
+  --border: 270 50% 30% !important;
+  --accent: 270 50% 18% !important;
+  --accent-foreground: 270 90% 93% !important;
+  --card: 270 50% 11% !important;
+  --card-foreground: 270 100% 97% !important;
+  background: linear-gradient(135deg, #1b0928 0%, #100418 100%) !important;
   border-color: #6b21a8 !important;
-  color: #f3e8ff !important;
+  color: #faf5ff !important;
 }
 .theme-mystic:hover {
   border-color: #a855f7 !important;
 }
 
 .theme-noir {
+  --foreground: 0 0% 98% !important;
+  --muted-foreground: 240 5% 82% !important;
+  --primary: 0 0% 90% !important;
+  --primary-foreground: 0 0% 10% !important;
+  --border: 240 5% 28% !important;
+  --accent: 240 5% 18% !important;
+  --accent-foreground: 0 0% 95% !important;
+  --card: 240 5% 10% !important;
+  --card-foreground: 0 0% 98% !important;
   background: linear-gradient(135deg, #18181b 0%, #121214 50%, #09090b 100%) !important;
   border-color: #3f3f46 !important;
-  color: #f4f4f5 !important;
+  color: #fafafa !important;
 }
 .theme-noir:hover {
   border-color: #71717a !important;
+}
+
+/* Ensure all text, titles, bodies, and icons in themed cards are sharp and 100% legible */
+.theme-romance,
+.theme-parchment,
+.theme-midnight,
+.theme-nature,
+.theme-sunset,
+.theme-mystic,
+.theme-noir {
+  color: hsl(var(--foreground)) !important;
+}
+
+.theme-romance h1, .theme-romance h2, .theme-romance h3,
+.theme-parchment h1, .theme-parchment h2, .theme-parchment h3,
+.theme-midnight h1, .theme-midnight h2, .theme-midnight h3,
+.theme-nature h1, .theme-nature h2, .theme-nature h3,
+.theme-sunset h1, .theme-sunset h2, .theme-sunset h3,
+.theme-mystic h1, .theme-mystic h2, .theme-mystic h3,
+.theme-noir h1, .theme-noir h2, .theme-noir h3 {
+  color: hsl(var(--foreground)) !important;
+}
+
+.theme-romance p,
+.theme-parchment p,
+.theme-midnight p,
+.theme-nature p,
+.theme-sunset p,
+.theme-mystic p,
+.theme-noir p {
+  color: hsl(var(--foreground));
+}
+
+.theme-romance .prose-poem,
+.theme-parchment .prose-poem,
+.theme-midnight .prose-poem,
+.theme-nature .prose-poem,
+.theme-sunset .prose-poem,
+.theme-mystic .prose-poem,
+.theme-noir .prose-poem {
+  color: hsl(var(--foreground)) !important;
+}
+
+.theme-romance [class*="muted-foreground"],
+.theme-parchment [class*="muted-foreground"],
+.theme-midnight [class*="muted-foreground"],
+.theme-nature [class*="muted-foreground"],
+.theme-sunset [class*="muted-foreground"],
+.theme-mystic [class*="muted-foreground"],
+.theme-noir [class*="muted-foreground"] {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.theme-romance svg,
+.theme-parchment svg,
+.theme-midnight svg,
+.theme-nature svg,
+.theme-sunset svg,
+.theme-mystic svg,
+.theme-noir svg {
+  color: hsl(var(--muted-foreground));
+}
+
+.theme-romance button:hover svg,
+.theme-romance a:hover svg,
+.theme-parchment button:hover svg,
+.theme-parchment a:hover svg,
+.theme-midnight button:hover svg,
+.theme-midnight a:hover svg,
+.theme-nature button:hover svg,
+.theme-nature a:hover svg,
+.theme-sunset button:hover svg,
+.theme-sunset a:hover svg,
+.theme-mystic button:hover svg,
+.theme-mystic a:hover svg,
+.theme-noir button:hover svg,
+.theme-noir a:hover svg {
+  color: hsl(var(--foreground)) !important;
 }
 
 /* ============================================================

@@ -204,7 +204,7 @@ export default function PostEditor({ postId }: PostEditorProps) {
                 {language}
               </span>
             )}
-            <span className={cn('text-xs ml-auto flex items-center gap-1.5 opacity-80', currentTheme.mutedTextClass)}>
+            <span className={cn('text-xs ml-auto flex items-center gap-1.5 font-medium', currentTheme.mutedTextClass)}>
               <span>{currentTheme.emoji}</span>
               <span>{currentTheme.name} Theme</span>
             </span>
