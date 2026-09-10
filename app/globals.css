@@ -144,11 +144,101 @@ body {
 }
 
 @keyframes heartPop {
-  0%   { transform: scale(1); }
-  40%  { transform: scale(1.35); }
-  70%  { transform: scale(0.9); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(0.6);
+  }
+  30% {
+    transform: scale(1.4) rotate(-6deg);
+  }
+  60% {
+    transform: scale(0.88) rotate(4deg);
+  }
+  85% {
+    transform: scale(1.1) rotate(-1deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
 }
+
+@keyframes heartRingBurst {
+  0% {
+    transform: scale(0.2);
+    opacity: 0.95;
+    border-color: #f43f5e;
+    border-width: 2.5px;
+  }
+  50% {
+    opacity: 0.8;
+    border-color: #fb7185;
+    border-width: 2px;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+    border-color: #fda4af;
+    border-width: 0.5px;
+  }
+}
+
+@keyframes heartParticleBurst {
+  0% {
+    transform: translate(0, 0) scale(0);
+    opacity: 1;
+  }
+  40% {
+    opacity: 1;
+    transform: translate(var(--tx), var(--ty)) scale(1.35);
+  }
+  100% {
+    transform: translate(calc(var(--tx) * 1.35), calc(var(--ty) * 1.35)) scale(0);
+    opacity: 0;
+  }
+}
+
+.heart-burst-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  margin-top: -11px;
+  margin-left: -11px;
+  border-radius: 9999px;
+  border-style: solid;
+  border-color: #f43f5e;
+  pointer-events: none;
+  animation: heartRingBurst 0.55s ease-out forwards;
+  z-index: 20;
+}
+
+.heart-particles {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 21;
+}
+
+.hp-dot {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 9999px;
+  top: -2px;
+  left: -2px;
+  opacity: 0;
+  animation: heartParticleBurst 0.6s cubic-bezier(0.2, 0.8, 0.4, 1) forwards;
+}
+
+.hp-1 { --tx: 0px;   --ty: -18px; background-color: #ef4444; }
+.hp-2 { --tx: 16px;  --ty: -9px;  background-color: #f59e0b; }
+.hp-3 { --tx: 16px;  --ty: 11px;  background-color: #ec4899; }
+.hp-4 { --tx: 0px;   --ty: 19px;  background-color: #e11d48; }
+.hp-5 { --tx: -16px; --ty: 11px;  background-color: #a855f7; }
+.hp-6 { --tx: -16px; --ty: -9px;  background-color: #f43f5e; }
 
 @keyframes shimmer {
   0%   { background-position: -200% 0; }
@@ -164,7 +254,7 @@ body {
 }
 
 .animate-heart-pop {
-  animation: heartPop 0.35s ease-out;
+  animation: heartPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 
 /* ============================================================
@@ -517,18 +607,20 @@ body {
    scoped --muted-foreground color token with 100% uniformity.
    ============================================================ */
 .post-card-footer,
-.post-card-footer span,
+.post-card-footer span:not(.hp-dot),
 .post-card-footer time,
 .post-card-footer button,
 .post-card-footer a,
-.post-card-footer svg {
+.post-card-footer svg:not(.liked-heart) {
   color: hsl(var(--muted-foreground)) !important;
 }
 
-/* When post is liked, fill the heart cleanly with theme currentColor */
-.post-card-footer svg.liked-heart {
-  color: hsl(var(--muted-foreground)) !important;
-  fill: currentColor !important;
+/* When post is liked, fill the heart in vivid crimson red with subtle glow */
+.post-card-footer svg.liked-heart,
+svg.liked-heart {
+  color: #e11d48 !important;
+  fill: #e11d48 !important;
+  filter: drop-shadow(0 1px 4px rgba(225, 29, 72, 0.4));
 }
 
 /* When comments drawer is toggled open */
@@ -541,9 +633,9 @@ body {
 /* Hover highlights for interactive buttons & links */
 .post-card-footer button:hover,
 .post-card-footer a:hover,
-.post-card-footer button:hover span,
+.post-card-footer button:hover span:not(.hp-dot),
 .post-card-footer a:hover span,
-.post-card-footer button:hover svg,
+.post-card-footer button:hover svg:not(.liked-heart),
 .post-card-footer a:hover svg {
   color: hsl(var(--foreground)) !important;
 }

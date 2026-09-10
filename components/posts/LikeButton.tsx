@@ -70,7 +70,7 @@ export default function LikeButton({
 
       if (newLiked) {
         setPop(true)
-        setTimeout(() => setPop(false), 400)
+        setTimeout(() => setPop(false), 650)
       }
 
       setLoading(true)
@@ -108,23 +108,37 @@ export default function LikeButton({
         onClick={handleToggle}
         disabled={loading}
         className={cn(
-          'flex items-center gap-1 text-xs transition-colors py-0.5 px-1 rounded hover:bg-[hsl(var(--accent))]',
-          liked
-            ? 'text-[hsl(var(--primary))] font-medium'
-            : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))]',
+          'flex items-center gap-1 text-xs transition-colors py-0.5 px-1 rounded hover:bg-[hsl(var(--accent))] relative group',
           loading && 'opacity-60 cursor-not-allowed',
           className
         )}
         aria-label={liked ? 'Unlike this post' : 'Like this post'}
       >
-        <Heart
-          size={15}
-          className={cn(
-            'transition-all duration-150',
-            liked && 'liked-heart fill-current text-[hsl(var(--primary))]',
-            pop && 'animate-heart-pop'
+        <div className="relative inline-flex items-center justify-center">
+          {pop && (
+            <>
+              <span className="heart-burst-ring pointer-events-none" />
+              <span className="heart-particles pointer-events-none">
+                <span className="hp-dot hp-1" />
+                <span className="hp-dot hp-2" />
+                <span className="hp-dot hp-3" />
+                <span className="hp-dot hp-4" />
+                <span className="hp-dot hp-5" />
+                <span className="hp-dot hp-6" />
+              </span>
+            </>
           )}
-        />
+          <Heart
+            size={15}
+            className={cn(
+              'transition-transform duration-150 relative z-10',
+              liked
+                ? 'liked-heart fill-[#e11d48] text-[#e11d48]'
+                : 'text-current group-hover:text-rose-500 group-hover:scale-110',
+              pop && 'animate-heart-pop'
+            )}
+          />
+        </div>
         <span className="tabular-nums">{count}</span>
       </button>
     )
@@ -135,24 +149,41 @@ export default function LikeButton({
       onClick={handleToggle}
       disabled={loading}
       className={cn(
-        'flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-all duration-150',
+        'flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-all duration-150 relative group',
         liked
-          ? 'border-[hsl(var(--primary)/0.5)] bg-[hsl(var(--primary)/0.08)] text-[hsl(var(--primary))]'
-          : 'border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--primary)/0.3)] hover:text-[hsl(var(--primary))]',
+          ? 'border-rose-300 dark:border-rose-900 bg-rose-50/70 dark:bg-rose-950/20'
+          : 'border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:border-rose-300 hover:text-rose-500',
         loading && 'opacity-60 cursor-not-allowed',
         className
       )}
       aria-label={liked ? 'Unlike this post' : 'Like this post'}
     >
-      <Heart
-        size={16}
-        className={cn(
-          'transition-all duration-150',
-          liked && 'fill-current',
-          pop && 'animate-heart-pop'
+      <div className="relative inline-flex items-center justify-center">
+        {pop && (
+          <>
+            <span className="heart-burst-ring pointer-events-none" />
+            <span className="heart-particles pointer-events-none">
+              <span className="hp-dot hp-1" />
+              <span className="hp-dot hp-2" />
+              <span className="hp-dot hp-3" />
+              <span className="hp-dot hp-4" />
+              <span className="hp-dot hp-5" />
+              <span className="hp-dot hp-6" />
+            </span>
+          </>
         )}
-      />
-      <span className="text-sm font-medium tabular-nums">{count}</span>
+        <Heart
+          size={16}
+          className={cn(
+            'transition-transform duration-150 relative z-10',
+            liked
+              ? 'liked-heart fill-[#e11d48] text-[#e11d48]'
+              : 'text-current group-hover:text-rose-500 group-hover:scale-110',
+            pop && 'animate-heart-pop'
+          )}
+        />
+      </div>
+      <span className={cn('text-sm font-medium tabular-nums', liked && 'text-[#e11d48]')}>{count}</span>
     </button>
   )
 }
