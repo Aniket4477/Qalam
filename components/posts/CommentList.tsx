@@ -31,8 +31,8 @@ export default function CommentList({
   const sb = supabase as any
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) setCurrentUser({ id: user.id })
+    supabase.auth.getUser().then(({ data }: any) => {
+      if (data?.user) setCurrentUser({ id: data.user.id })
     })
 
     // Fetch comments if none passed initially

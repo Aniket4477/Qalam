@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getCurrentUser } from '@/lib/supabase/server'
 import PostCard, { PostCardSkeleton } from '@/components/posts/PostCard'
 import HomeFeedTabs from '@/components/feed/HomeFeedTabs'
 import type { PostWithAuthor } from '@/lib/supabase/types'
@@ -21,7 +21,7 @@ async function FeedContent({ tab }: { tab: string }) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sb = supabase as any
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getCurrentUser()
 
   let query = sb.from('posts').select('*, profiles(*)').eq('status', 'published')
 

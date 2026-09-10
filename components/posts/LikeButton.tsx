@@ -11,6 +11,8 @@ interface LikeButtonProps {
   initialLiked: boolean
   variant?: 'default' | 'inline'
   onLikeChange?: (newLiked: boolean, newCount: number) => void
+  currentUserId?: string | null
+  isAuthenticated?: boolean
   className?: string
 }
 
@@ -20,22 +22,39 @@ export default function LikeButton({
   initialLiked,
   variant = 'default',
   onLikeChange,
+  currentUserId,
+  isAuthenticated: propIsAuthenticated,
   className,
 }: LikeButtonProps) {
   const [liked, setLiked] = useState(initialLiked)
   const [count, setCount] = useState(initialCount)
   const [loading, setLoading] = useState(false)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(
+    propIsAuthenticated !== undefined
+      ? propIsAuthenticated
+      : currentUserId !== undefined
+      ? !!currentUserId
+      : false
+  )
   const [pop, setPop] = useState(false)
   const supabase = createClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sb = supabase as any
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setIsAuthenticated(!!user)
+    if (propIsAuthenticated !== undefined) {
+      setIsAuthenticated(propIsAuthenticated)
+      return
+    }
+    if (currentUserId !== undefined) {
+      setIsAuthenticated(!!currentUserId)
+      return
+    }
+    // Only fall back to session lookup if not passed from parent
+    supabase.auth.getSession().then(({ data }: any) => {
+      setIsAuthenticated(!!data?.session?.user)
     })
-  }, [supabase])
+  }, [propIsAuthenticated, currentUserId, supabase])
 
   useEffect(() => {
     setLiked(initialLiked)
@@ -75,13 +94,17 @@ export default function LikeButton({
 
       setLoading(true)
       try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
+        let activeUid = currentUserId
+        if (!activeUid) {
+          const { data: { user } } = await supabase.auth.getUser()
+          activeUid = user?.id || null
+        }
+        if (!activeUid) return
 
         if (newLiked) {
-          await sb.from('likes').insert({ post_id: postId, user_id: user.id })
+          await sb.from('likes').insert({ post_id: postId, user_id: activeUid })
         } else {
-          await sb.from('likes').delete().eq('post_id', postId).eq('user_id', user.id)
+          await sb.from('likes').delete().eq('post_id', postId).eq('user_id', activeUid)
         }
       } catch {
         setLiked(!newLiked)
@@ -99,7 +122,7 @@ export default function LikeButton({
         setLoading(false)
       }
     },
-    [liked, count, loading, isAuthenticated, postId, supabase, sb, onLikeChange]
+    [liked, count, loading, isAuthenticated, postId, currentUserId, supabase, sb, onLikeChange]
   )
 
   if (variant === 'inline') {

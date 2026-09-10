@@ -356,7 +356,7 @@ export default async function ProfilePage({ params }: Props) {
         ) : (
           <div className="space-y-4">
             {enrichedPosts.map((post) => (
-              <PostCard key={post.id} post={post} showAuthor={true} />
+              <PostCard key={post.id} post={post} showAuthor={true} currentUserId={user?.id} />
             ))}
           </div>
         )}

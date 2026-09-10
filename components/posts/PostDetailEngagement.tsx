@@ -18,6 +18,7 @@ interface PostDetailEngagementProps {
   authorAvatar?: string
   preview: string
   postUrl: string
+  currentUserId?: string | null
 }
 
 export default function PostDetailEngagement({
@@ -31,6 +32,7 @@ export default function PostDetailEngagement({
   authorAvatar,
   preview,
   postUrl,
+  currentUserId,
 }: PostDetailEngagementProps) {
   const [likesCount, setLikesCount] = useState(initialLikesCount)
   const [userLiked, setUserLiked] = useState(initialUserLiked)
@@ -50,6 +52,8 @@ export default function PostDetailEngagement({
           postId={postId}
           initialCount={likesCount}
           initialLiked={userLiked}
+          currentUserId={currentUserId}
+          isAuthenticated={!!currentUserId}
           onLikeChange={(liked, count) => {
             setUserLiked(liked)
             setLikesCount(count)
@@ -79,6 +83,7 @@ export default function PostDetailEngagement({
             likesCount={likesCount}
             initialFirstLiker={initialFirstLiker}
             userHasLiked={userLiked}
+            currentUserId={currentUserId}
             className="text-sm"
           />
         </div>

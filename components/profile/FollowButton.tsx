@@ -24,8 +24,8 @@ export default function FollowButton({
   const sb = supabase as any
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) setCurrentUserId(user.id)
+    supabase.auth.getUser().then(({ data }: any) => {
+      if (data?.user) setCurrentUserId(data.user.id)
     })
   }, [supabase])
 

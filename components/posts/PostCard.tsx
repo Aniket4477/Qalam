@@ -58,8 +58,8 @@ export default function PostCard({
       setCurrentUid(currentUserId)
       return
     }
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) setCurrentUid(user.id)
+    supabase.auth.getSession().then(({ data }: any) => {
+      if (data?.session?.user) setCurrentUid(data.session.user.id)
     })
   }, [currentUserId, supabase])
 
@@ -310,6 +310,8 @@ export default function PostCard({
             initialLiked={userLiked}
             variant="inline"
             className={postTheme.actionClass}
+            currentUserId={currentUid}
+            isAuthenticated={!!currentUid}
             onLikeChange={(liked, count) => {
               setUserLiked(liked)
               setLikesCount(count)
@@ -364,6 +366,7 @@ export default function PostCard({
             likesCount={likesCount}
             initialFirstLiker={post.first_liker}
             userHasLiked={userLiked}
+            currentUserId={currentUid}
           />
         </div>
       )}

@@ -12,6 +12,7 @@ interface LikedByTextProps {
   likesCount: number
   initialFirstLiker?: Profile | null
   userHasLiked?: boolean
+  currentUserId?: string | null
   className?: string
 }
 
@@ -20,10 +21,11 @@ export default function LikedByText({
   likesCount,
   initialFirstLiker = null,
   userHasLiked = false,
+  currentUserId: propCurrentUserId,
   className,
 }: LikedByTextProps) {
   const [firstLiker, setFirstLiker] = useState<Profile | null>(initialFirstLiker)
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(propCurrentUserId ?? null)
   const [modalOpen, setModalOpen] = useState(false)
 
   const supabase = createClient()
@@ -31,10 +33,15 @@ export default function LikedByText({
   const sb = supabase as any
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) setCurrentUserId(user.id)
+    if (propCurrentUserId !== undefined) {
+      setCurrentUserId(propCurrentUserId)
+      return
+    }
+    // Only look up session if prop wasn't provided
+    supabase.auth.getSession().then(({ data }: any) => {
+      if (data?.session?.user) setCurrentUserId(data.session.user.id)
     })
-  }, [supabase])
+  }, [propCurrentUserId, supabase])
 
   useEffect(() => {
     if (initialFirstLiker) {
@@ -154,11 +161,13 @@ export default function LikedByText({
         )}
       </div>
 
-      <PostLikesModal
-        postId={postId}
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-      />
+      {modalOpen && (
+        <PostLikesModal
+          postId={postId}
+          isOpen={modalOpen}
+          onClose={() => setModalOpen(false)}
+        />
+      )}
     </>
   )
 }

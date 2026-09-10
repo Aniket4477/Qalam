@@ -1,14 +1,33 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Inter, Lora, Yatra_One } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/components/providers/ThemeProvider'
 import { Toaster } from '@/components/ui/toaster'
 import Navbar from '@/components/nav/Navbar'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getCurrentUser } from '@/lib/supabase/server'
 import type { Profile } from '@/lib/supabase/types'
 import { Analytics } from '@vercel/analytics/next'
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+})
+
+const lora = Lora({
+  subsets: ['latin'],
+  variable: '--font-lora',
+  display: 'swap',
+  weight: ['400', '500', '600', '700'],
+  style: ['normal', 'italic'],
+})
+
+const yatraOne = Yatra_One({
+  subsets: ['devanagari'],
+  weight: '400',
+  variable: '--font-hindi',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   title: {
@@ -39,15 +58,27 @@ export default async function RootLayout({
   let initialUnreadNotifications = 0
 
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (user) {
+      const supabase = await createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sb = supabase as any
       const [profRes, notifRes, msgRes] = await Promise.all([
-        sb.from('profiles').select('*').eq('id', user.id).single(),
-        sb.from('notifications').select('*', { count: 'exact', head: true }).eq('user_id', user.id).is('read_at', null),
-        sb.from('messages').select('*', { count: 'exact', head: true }).neq('sender_id', user.id).is('read_at', null),
+        sb
+          .from('profiles')
+          .select('id, username, display_name, avatar_url, role, is_verified, theme_preference')
+          .eq('id', user.id)
+          .single(),
+        sb
+          .from('notifications')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .is('read_at', null),
+        sb
+          .from('messages')
+          .select('*', { count: 'exact', head: true })
+          .neq('sender_id', user.id)
+          .is('read_at', null),
       ])
       if (profRes.data) initialProfile = profRes.data as Profile
       initialUnreadNotifications = notifRes.count ?? 0
@@ -59,7 +90,7 @@ export default async function RootLayout({
 
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={`${inter.variable} ${lora.variable} ${yatraOne.variable} ${inter.className} font-sans antialiased`}>
         <ThemeProvider>
           <div className="min-h-screen flex flex-col">
             <Navbar

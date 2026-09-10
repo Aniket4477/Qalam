@@ -203,7 +203,7 @@ export default async function CompetitionDetailPage({ params }: Props) {
                     {idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}
                   </div>
                 )}
-                <PostCard post={entry.posts as PostWithAuthor} />
+                <PostCard post={entry.posts as PostWithAuthor} currentUserId={user?.id} />
               </div>
             ) : null
           )}

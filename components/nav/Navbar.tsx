@@ -112,7 +112,10 @@ export default function Navbar({
 
   // Initial fetch and auth listener
   useEffect(() => {
-    getProfile()
+    // Skip initial fetch if server layout already supplied profile
+    if (!initialProfile) {
+      getProfile()
+    }
 
     const {
       data: { subscription },
@@ -133,11 +136,13 @@ export default function Navbar({
       subscription.unsubscribe()
       window.removeEventListener('profile-updated', handleProfileUpdated)
     }
-  }, [getProfile, supabase])
+  }, [getProfile, supabase, initialProfile])
 
-  // Re-fetch on pathname changes (e.g. entering a conversation marks it read, navigating updates badge)
+  // Re-fetch only when entering or leaving messages/notifications where unread counts change
   useEffect(() => {
-    getProfile()
+    if (pathname.startsWith('/messages') || pathname.startsWith('/notifications')) {
+      getProfile()
+    }
   }, [pathname, getProfile])
 
   // Realtime subscription for live profile, messages, and notification updates
@@ -154,7 +159,7 @@ export default function Navbar({
           table: 'profiles',
           filter: `id=eq.${profile.id}`,
         },
-        (payload) => {
+        (payload: any) => {
           if (payload.new) {
             setProfile(payload.new as Profile)
           }

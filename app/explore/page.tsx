@@ -641,7 +641,7 @@ function ExploreContent() {
                   {postResults.length} result{postResults.length !== 1 ? 's' : ''} found
                 </p>
                 {postResults.map((post) => (
-                  <PostCard key={post.id} post={post} />
+                  <PostCard key={post.id} post={post} currentUserId={currentUserId} />
                 ))}
               </div>
             )
@@ -770,7 +770,7 @@ function ExploreContent() {
                       No poems found matching &quot;{query}&quot;.
                     </p>
                   ) : (
-                    postResults.map((post) => <PostCard key={post.id} post={post} />)
+                    postResults.map((post) => <PostCard key={post.id} post={post} currentUserId={currentUserId} />)
                   )}
                 </div>
               </>

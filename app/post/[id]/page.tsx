@@ -1,7 +1,8 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import type { Metadata } from 'next'
-import { createClient } from '@/lib/supabase/server'
+import { cache } from 'react'
+import { createClient, getCurrentUser } from '@/lib/supabase/server'
 import { formatDate, POST_TYPE_LABELS, isRTL, getPreviewLines, cn } from '@/lib/utils'
 import CommentList from '@/components/posts/CommentList'
 import PostActions from '@/components/posts/PostActions'
@@ -20,19 +21,21 @@ interface Props {
   params: Promise<{ id: string }>
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { id } = await params
+const getPost = cache(async (id: string): Promise<PostWithProfile | null> => {
   const supabase = await createClient()
   const { data } = await supabase
     .from('posts')
-    .select('title, body, profiles(display_name)')
+    .select('*, profiles(*)')
     .eq('id', id)
-    .eq('status', 'published')
     .single()
+  return data as unknown as PostWithProfile | null
+})
 
-  const post = data as unknown as { title: string | null; body: string; profiles: { display_name: string } | null }
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { id } = await params
+  const post = await getPost(id)
 
-  if (!post) return { title: 'Post not found' }
+  if (!post || post.status !== 'published') return { title: 'Post not found' }
 
   const author = post.profiles?.display_name ?? 'Unknown'
   const preview = getPreviewLines(post.body)
@@ -48,21 +51,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function PostPage({ params }: Props) {
   const { id } = await params
-  const supabase = await createClient()
-
-  const { data: { user } } = await supabase.auth.getUser()
-
-  const { data } = await supabase
-    .from('posts')
-    .select('*, profiles(*)')
-    .eq('id', id)
-    .single()
-
-  const post = data as unknown as PostWithProfile | null
+  const [user, post] = await Promise.all([
+    getCurrentUser(),
+    getPost(id),
+  ])
 
   if (!post || (post.status === 'draft' && post.author_id !== user?.id)) {
     notFound()
   }
+
+  const supabase = await createClient()
 
   const [likesResult, userLikeResult, commentsResult, firstLikerResult] = await Promise.all([
     supabase.from('likes').select('*', { count: 'exact', head: true }).eq('post_id', id),
@@ -216,6 +214,7 @@ export default async function PostPage({ params }: Props) {
         authorAvatar={profile?.avatar_url ?? undefined}
         preview={preview}
         postUrl={postUrl}
+        currentUserId={user?.id}
       />
 
       <CommentList postId={post.id} initialComments={comments} />

@@ -1,8 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@300;400;500;600;700&family=Yatra+One&family=Amita:wght@700&family=Rozha+One&family=Kalam:wght@400;700&display=swap');
 @import "tailwindcss";
 
 .font-hindi {
-  font-family: 'Yatra One', 'Amita', 'Rozha One', cursive, serif;
+  font-family: var(--font-hindi), 'Yatra One', cursive, serif;
 }
 
 /* ============================================================
@@ -41,8 +40,8 @@
   --radius: 0.5rem;
 
   /* Typography */
-  --font-serif: 'Lora', Georgia, serif;
-  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-serif: var(--font-lora), 'Lora', Georgia, serif;
+  --font-sans: var(--font-inter), 'Inter', system-ui, sans-serif;
 }
 
 .dark {
