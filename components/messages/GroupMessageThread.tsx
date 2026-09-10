@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import type { Group, GroupMember, GroupMessage, Profile } from '@/lib/supabase/types'
@@ -16,12 +16,13 @@ import {
   type ChatMediaData,
   cn,
 } from '@/lib/utils'
-import { ArrowLeft, Users, Info, ArrowRight, Palette } from 'lucide-react'
+import { ArrowLeft, Users, Info, ArrowRight, Palette, AtSign } from 'lucide-react'
 import GroupInfoModal from './GroupInfoModal'
 import { getChatTheme, getThemeDisplayName, CHAT_THEMES, type ChatThemeId } from '@/lib/chatThemes'
 import type { ChatSticker } from '@/lib/chatStickers'
 import ChatThemeModal from './ChatThemeModal'
-import ChatInputBar from './ChatInputBar'
+import ChatInputBar, { type MentionSuggestion } from './ChatInputBar'
+import MessageBodyWithMentions from './MessageBodyWithMentions'
 import MediaLightboxModal from './MediaLightboxModal'
 
 interface GroupMessageThreadProps {
@@ -119,6 +120,51 @@ export default function GroupMessageThread({
     if (m.profiles) memberMap.current[m.user_id] = m.profiles
   })
 
+  // Current user's username for detecting mention highlights
+  const currentUsername = useMemo(() => {
+    const myProfile = currentMembers.find((m) => m.user_id === currentUserId)?.profiles
+    return myProfile?.username || memberMap.current[currentUserId]?.username
+  }, [currentMembers, currentUserId])
+
+  // Known users in group for mention lookup
+  const knownUsers = useMemo(() => {
+    return currentMembers
+      .filter((m) => m.profiles?.username)
+      .map((m) => ({
+        username: m.profiles!.username,
+        displayName: m.profiles!.display_name,
+      }))
+  }, [currentMembers])
+
+  // Mention suggestions for autocomplete dropdown in input bar
+  const mentionSuggestions: MentionSuggestion[] = useMemo(() => {
+    const list: MentionSuggestion[] = []
+
+    if (currentMembers.length > 1) {
+      list.push({
+        id: 'everyone',
+        username: 'everyone',
+        displayName: 'Everyone in circle',
+        badge: 'Notify all',
+        isSpecial: true,
+      })
+    }
+
+    currentMembers.forEach((m) => {
+      if (m.profiles?.username) {
+        list.push({
+          id: m.user_id,
+          username: m.profiles.username,
+          displayName: m.profiles.display_name || m.profiles.username,
+          avatarUrl: m.profiles.avatar_url,
+          badge: m.role === 'admin' ? 'Admin' : undefined,
+        })
+      }
+    })
+
+    return list
+  }, [currentMembers])
+
   // Auto-scroll to bottom on new messages
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -206,6 +252,48 @@ export default function GroupMessageThread({
           if (prev.find((m) => m.id === data.id)) return prev
           return [...prev, data as GroupMessage]
         })
+      }
+
+      // Check for mentions and trigger notifications for mentioned members
+      try {
+        const mentionMatches = text.match(/@([a-zA-Z0-9_.-]+)/g)
+        if (mentionMatches && mentionMatches.length > 0) {
+          const mentionedUserIds = new Set<string>()
+
+          for (const match of mentionMatches) {
+            const handle = match.slice(1).toLowerCase()
+            if (handle === 'everyone' || handle === 'all') {
+              currentMembers.forEach((m) => {
+                if (m.user_id !== currentUserId) mentionedUserIds.add(m.user_id)
+              })
+            } else {
+              const target = currentMembers.find(
+                (m) => m.profiles?.username?.toLowerCase() === handle
+              )
+              if (target && target.user_id !== currentUserId) {
+                mentionedUserIds.add(target.user_id)
+              }
+            }
+          }
+
+          if (mentionedUserIds.size > 0) {
+            const notifs = Array.from(mentionedUserIds).map((userId) => ({
+              user_id: userId,
+              type: 'message',
+              payload: {
+                group_id: group.id,
+                group_name: group.name,
+                from_user_id: currentUserId,
+                is_mention: true,
+                snippet: text.trim().slice(0, 100),
+              },
+            }))
+
+            await sb.from('notifications').insert(notifs)
+          }
+        }
+      } catch (notifErr) {
+        console.warn('Mention notification trigger notice:', notifErr)
       }
     } catch (err) {
       console.error('Failed to send group message:', err)
@@ -498,15 +586,33 @@ export default function GroupMessageThread({
                         const media = parseChatMediaMessage(msg.body)
                         const sharedPost = parsePostShareMessage(msg.body)
 
+                        const isUserMentioned =
+                          !isSelf &&
+                          Boolean(
+                            (currentUsername &&
+                              msg.body
+                                .toLowerCase()
+                                .includes(`@${currentUsername.toLowerCase()}`)) ||
+                              msg.body.toLowerCase().includes('@everyone') ||
+                              msg.body.toLowerCase().includes('@all')
+                          )
+
                         return (
                           <div
                             className={cn(
-                              'rounded-2xl px-3.5 py-2.5 text-sm break-words transition-all duration-150',
+                              'rounded-2xl px-3.5 py-2.5 text-sm break-words transition-all duration-150 relative',
                               isSelf
                                 ? currentTheme.bubbleOwnClass
-                                : currentTheme.bubbleOtherClass
+                                : currentTheme.bubbleOtherClass,
+                              isUserMentioned && 'ring-2 ring-amber-400/70 shadow-md'
                             )}
                           >
+                            {isUserMentioned && (
+                              <div className="flex items-center gap-1 text-[10px] font-bold text-amber-300 dark:text-amber-400 mb-1.5 select-none tracking-wide uppercase">
+                                <AtSign size={11} className="shrink-0" />
+                                <span>You were mentioned</span>
+                              </div>
+                            )}
                             {media ? (
                               <div className="space-y-1.5">
                                 <div
@@ -596,7 +702,11 @@ export default function GroupMessageThread({
                                 </Link>
                               </div>
                             ) : (
-                              <p className="whitespace-pre-wrap leading-relaxed">{msg.body}</p>
+                              <MessageBodyWithMentions
+                                body={msg.body}
+                                currentUsername={currentUsername}
+                                knownUsers={knownUsers}
+                              />
                             )}
                             <p
                               className={cn(
@@ -619,13 +729,14 @@ export default function GroupMessageThread({
         <div ref={bottomRef} />
       </div>
 
-      {/* Pill Chat Input Bar matching reference */}
+      {/* Pill Chat Input Bar with Mentions */}
       <ChatInputBar
         placeholder={`Share with ${group.name}…`}
         sending={sending}
         onSendText={handleSendText}
         onSendMedia={handleSendMedia}
         onSendSticker={handleSendSticker}
+        mentionSuggestions={mentionSuggestions}
       />
 
       {/* Media Lightbox Viewer Modal */}

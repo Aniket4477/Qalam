@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { formatDate } from '@/lib/utils'
-import { Bell, Heart, MessageCircle, Trophy, Mail } from 'lucide-react'
+import { Bell, Heart, MessageCircle, Trophy, Mail, AtSign } from 'lucide-react'
 import type { Metadata } from 'next'
 import MarkNotificationsRead from '@/components/notifications/MarkNotificationsRead'
 import type { Notification, Profile } from '@/lib/supabase/types'
@@ -14,10 +14,15 @@ export const metadata: Metadata = {
 function NotificationIcon({
   type,
   size = 16,
+  isMention = false,
 }: {
   type: Notification['type']
   size?: number
+  isMention?: boolean
 }) {
+  if (isMention) {
+    return <AtSign size={size} className="text-amber-500" />
+  }
   switch (type) {
     case 'like':
       return <Heart size={size} className="text-red-500 fill-red-500" />
@@ -84,7 +89,25 @@ function NotificationMessage({
           {actorNode} commented on your {postNode}
         </p>
       )
-    case 'message':
+    case 'message': {
+      if (payload.group_id) {
+        return (
+          <p className="text-sm leading-snug">
+            {actorNode} {payload.is_mention ? 'mentioned you in' : 'sent a message in'}{' '}
+            <Link
+              href={`/messages/group/${payload.group_id}`}
+              className="font-medium text-[hsl(var(--primary))] hover:underline transition-colors"
+            >
+              {payload.group_name ? String(payload.group_name) : 'circle chat'}
+            </Link>
+            {payload.snippet ? (
+              <span className="block text-xs text-[hsl(var(--muted-foreground))] mt-0.5 truncate italic">
+                &ldquo;{String(payload.snippet)}&rdquo;
+              </span>
+            ) : null}
+          </p>
+        )
+      }
       return (
         <p className="text-sm leading-snug">
           {actorNode} sent you a{' '}
@@ -100,6 +123,7 @@ function NotificationMessage({
           </Link>
         </p>
       )
+    }
     case 'competition_ended':
       return (
         <p className="text-sm leading-snug">
@@ -281,12 +305,20 @@ export default async function NotificationsPage() {
                         </div>
                       )}
                       <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[hsl(var(--background))] border border-[hsl(var(--border))] flex items-center justify-center shadow-xs">
-                        <NotificationIcon type={notification.type} size={11} />
+                        <NotificationIcon
+                          type={notification.type}
+                          size={11}
+                          isMention={Boolean(p.is_mention)}
+                        />
                       </span>
                     </Link>
                   ) : (
                     <div className="w-10 h-10 rounded-full bg-[hsl(var(--accent))] flex items-center justify-center border border-[hsl(var(--border))]">
-                      <NotificationIcon type={notification.type} size={18} />
+                      <NotificationIcon
+                        type={notification.type}
+                        size={18}
+                        isMention={Boolean(p.is_mention)}
+                      />
                     </div>
                   )}
                 </div>

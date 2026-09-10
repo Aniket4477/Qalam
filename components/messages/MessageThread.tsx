@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import type { Message, Profile } from '@/lib/supabase/types'
@@ -20,7 +20,8 @@ import { ArrowLeft, ArrowRight, Palette } from 'lucide-react'
 import { getChatTheme, getThemeDisplayName, CHAT_THEMES, type ChatThemeId } from '@/lib/chatThemes'
 import type { ChatSticker } from '@/lib/chatStickers'
 import ChatThemeModal from './ChatThemeModal'
-import ChatInputBar from './ChatInputBar'
+import ChatInputBar, { type MentionSuggestion } from './ChatInputBar'
+import MessageBodyWithMentions from './MessageBodyWithMentions'
 import MediaLightboxModal from './MediaLightboxModal'
 
 interface MessageThreadProps {
@@ -102,6 +103,22 @@ export default function MessageThread({
   }
 
   const currentTheme = getChatTheme(themeId)
+
+  const mentionSuggestions: MentionSuggestion[] = useMemo(() => [
+    {
+      id: otherUser.id,
+      username: otherUser.username,
+      displayName: otherUser.display_name,
+      avatarUrl: otherUser.avatar_url,
+    },
+  ], [otherUser])
+
+  const knownUsers = useMemo(() => [
+    {
+      username: otherUser.username,
+      displayName: otherUser.display_name,
+    },
+  ], [otherUser])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -429,7 +446,10 @@ export default function MessageThread({
                             </Link>
                           </div>
                         ) : (
-                          <p className="whitespace-pre-wrap break-words leading-relaxed">{msg.body}</p>
+                          <MessageBodyWithMentions
+                            body={msg.body}
+                            knownUsers={knownUsers}
+                          />
                         )}
                         <p
                           className={cn(
@@ -457,6 +477,7 @@ export default function MessageThread({
         onSendText={handleSendText}
         onSendMedia={handleSendMedia}
         onSendSticker={handleSendSticker}
+        mentionSuggestions={mentionSuggestions}
       />
 
       {/* Media Lightbox Viewer Modal */}
