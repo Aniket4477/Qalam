@@ -6,7 +6,7 @@ import PostCard from '@/components/posts/PostCard'
 import CompetitionEnterButton from '@/components/competitions/CompetitionEnterButton'
 import AdminCompetitionControls from '@/components/competitions/AdminCompetitionControls'
 import type { PostWithAuthor, Competition } from '@/lib/supabase/types'
-import { formatDate, POST_TYPE_LABELS, isUserAdmin } from '@/lib/utils'
+import { formatDate, formatDeadline, POST_TYPE_LABELS, isUserAdmin } from '@/lib/utils'
 import { Trophy, Calendar, Clock, Users } from 'lucide-react'
 
 interface Props {
@@ -59,6 +59,7 @@ export default async function CompetitionDetailPage({ params }: Props) {
   }>
 
   const entryPostIds = entries.map((e) => e.post_id)
+  const entryIds = entries.map((e) => e.id)
 
   const [likesData, userLikesData, commentsData] = await Promise.all([
     entryPostIds.length > 0
@@ -76,6 +77,23 @@ export default async function CompetitionDetailPage({ params }: Props) {
       : Promise.resolve({ data: [] }),
   ])
 
+  // Fetch votes for all entries in this competition
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let votesData: any[] = []
+  if (entryIds.length > 0) {
+    try {
+      const { data: vData, error: vError } = await sb
+        .from('competition_votes')
+        .select('id, entry_id, user_id, created_at, profiles(id, username, display_name, avatar_url)')
+        .in('entry_id', entryIds)
+      if (!vError && vData) {
+        votesData = vData
+      }
+    } catch (err) {
+      console.warn('Could not fetch competition votes:', err)
+    }
+  }
+
   const likesMap: Record<string, number> = {}
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const firstLikerMap: Record<string, any> = {}
@@ -92,8 +110,27 @@ export default async function CompetitionDetailPage({ params }: Props) {
     commentsMap[c.post_id] = (commentsMap[c.post_id] ?? 0) + 1
   })
 
+  // Group votes by entry_id
+  const votesMap: Record<string, number> = {}
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const votersMap: Record<string, any[]> = {}
+  const userVotedSet = new Set<string>()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  votesData.forEach((v: any) => {
+    votesMap[v.entry_id] = (votesMap[v.entry_id] ?? 0) + 1
+    if (!votersMap[v.entry_id]) votersMap[v.entry_id] = []
+    if (v.profiles) votersMap[v.entry_id].push(v.profiles)
+    if (user && v.user_id === user.id) {
+      userVotedSet.add(v.entry_id)
+    }
+  })
+
   const enrichedEntries = entries.map((entry) => ({
     ...entry,
+    votes_count: votesMap[entry.id] ?? 0,
+    user_has_voted: userVotedSet.has(entry.id),
+    voters: votersMap[entry.id] ?? [],
     posts: entry.posts
       ? {
           ...entry.posts,
@@ -103,11 +140,15 @@ export default async function CompetitionDetailPage({ params }: Props) {
           user_has_liked: userLikedSet.has(entry.post_id),
         }
       : null,
-  })).sort((a, b) =>
-    competition.status === 'voting' || competition.status === 'closed'
-      ? (b.posts?.likes_count ?? 0) - (a.posts?.likes_count ?? 0)
-      : 0
-  )
+  })).sort((a, b) => {
+    if (competition.status === 'voting' || competition.status === 'closed') {
+      return (b.votes_count ?? 0) - (a.votes_count ?? 0)
+    }
+    if ((b.votes_count ?? 0) !== (a.votes_count ?? 0)) {
+      return (b.votes_count ?? 0) - (a.votes_count ?? 0)
+    }
+    return 0
+  })
 
   // Check if user has already entered
   let userHasEntered = false
@@ -152,11 +193,23 @@ export default async function CompetitionDetailPage({ params }: Props) {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
           <div className="flex items-center gap-2 text-[hsl(var(--muted-foreground))]">
             <Calendar size={14} className="shrink-0" />
-            <span>Opens {formatDate(competition.starts_at)}</span>
+            <span>
+              {new Date(competition.starts_at).getTime() > Date.now()
+                ? `Opens ${formatDate(competition.starts_at)}`
+                : `Started ${formatDate(competition.starts_at)}`}
+            </span>
           </div>
           <div className="flex items-center gap-2 text-[hsl(var(--muted-foreground))]">
             <Clock size={14} className="shrink-0" />
-            <span>Submit by {formatDate(competition.submissions_close_at)}</span>
+            <span>
+              {competition.status === 'open'
+                ? `Submissions ${formatDeadline(competition.submissions_close_at)}`
+                : competition.status === 'voting'
+                ? `Voting ${formatDeadline(competition.voting_closes_at)}`
+                : competition.status === 'upcoming'
+                ? `Opens ${formatDate(competition.starts_at)}`
+                : `Ended ${formatDate(competition.voting_closes_at)}`}
+            </span>
           </div>
           <div className="flex items-center gap-2 text-[hsl(var(--muted-foreground))]">
             <Users size={14} className="shrink-0" />
@@ -184,9 +237,11 @@ export default async function CompetitionDetailPage({ params }: Props) {
       </div>
 
       <h2 className="text-lg font-semibold mb-4" style={{ fontFamily: 'Lora, Georgia, serif' }}>
-        {competition.status === 'closed' ? '🏆 Final Results'
-          : competition.status === 'voting' ? '🗳️ Entries — Vote for your favourite'
-          : 'Entries'}
+        {competition.status === 'closed'
+          ? '🏆 Final Results'
+          : competition.status === 'voting'
+          ? '🗳️ Entries — Vote for your favourite'
+          : 'Entries & Voting'}
       </h2>
 
       {enrichedEntries.length === 0 ? (
@@ -194,16 +249,34 @@ export default async function CompetitionDetailPage({ params }: Props) {
           No entries yet. Be the first to enter!
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-6">
           {enrichedEntries.map((entry, idx) =>
             entry.posts ? (
               <div key={entry.id} className="relative">
-                {(competition.status === 'voting' || competition.status === 'closed') && idx < 3 && (
-                  <div className="absolute -left-6 top-4 text-lg">
-                    {idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}
+                {/* Ranking medal and votes banner for top entries */}
+                {idx < 3 && (competition.status === 'voting' || competition.status === 'closed' || entry.votes_count > 0) && (
+                  <div className="flex items-center justify-between mb-2 px-1 text-xs">
+                    <span className="font-semibold flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                      <span className="text-base leading-none">{idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}</span>
+                      <span>{idx === 0 ? '1st Place' : idx === 1 ? '2nd Place' : '3rd Place'}</span>
+                    </span>
+                    <span className="font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                      {entry.votes_count} {entry.votes_count === 1 ? 'vote' : 'votes'}
+                    </span>
                   </div>
                 )}
-                <PostCard post={entry.posts as PostWithAuthor} currentUserId={user?.id} />
+                <PostCard
+                  post={entry.posts as PostWithAuthor}
+                  currentUserId={user?.id}
+                  competitionVote={{
+                    competitionId: id,
+                    entryId: entry.id,
+                    status: competition.status,
+                    votesCount: entry.votes_count,
+                    userHasVoted: entry.user_has_voted,
+                    voters: entry.voters,
+                  }}
+                />
               </div>
             ) : null
           )}

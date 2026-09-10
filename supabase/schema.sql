@@ -154,6 +154,22 @@ CREATE TABLE IF NOT EXISTS competition_entries (
 CREATE INDEX IF NOT EXISTS entries_competition_idx ON competition_entries(competition_id);
 
 -- ============================================================
+-- COMPETITION VOTES
+-- ============================================================
+CREATE TABLE IF NOT EXISTS competition_votes (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  competition_id UUID NOT NULL REFERENCES competitions(id) ON DELETE CASCADE,
+  entry_id UUID NOT NULL REFERENCES competition_entries(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(competition_id, entry_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS competition_votes_entry_idx ON competition_votes(entry_id);
+CREATE INDEX IF NOT EXISTS competition_votes_comp_idx ON competition_votes(competition_id);
+CREATE INDEX IF NOT EXISTS competition_votes_user_idx ON competition_votes(user_id);
+
+-- ============================================================
 -- CONVERSATIONS
 -- ============================================================
 CREATE TABLE IF NOT EXISTS conversations (

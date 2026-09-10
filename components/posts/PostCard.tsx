@@ -3,18 +3,29 @@
 import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import type { PostWithAuthor } from '@/lib/supabase/types'
+import type { PostWithAuthor, Profile } from '@/lib/supabase/types'
 import { cn, formatDate, truncateBody, POST_TYPE_LABELS, isRTL, isUserAdmin } from '@/lib/utils'
 import { MessageCircle, BookOpen, Shield, UserPlus, Loader2 } from 'lucide-react'
 import LikeButton from './LikeButton'
 import CommentList from './CommentList'
 import SendPostButton from './SendPostButton'
 import LikedByText from './LikedByText'
+import CompetitionVoteButton from '@/components/competitions/CompetitionVoteButton'
+import CompetitionVotedByText from '@/components/competitions/CompetitionVotedByText'
 import {
   getPostTheme,
   getThemeFromTags,
   cleanDisplayTags,
 } from '@/lib/postThemes'
+
+export interface CompetitionVoteContext {
+  competitionId: string
+  entryId: string
+  status: 'upcoming' | 'open' | 'voting' | 'closed'
+  votesCount: number
+  userHasVoted: boolean
+  voters?: Profile[]
+}
 
 interface PostCardProps {
   post: PostWithAuthor
@@ -22,6 +33,7 @@ interface PostCardProps {
   variant?: 'default' | 'compact'
   initialIsFollowing?: boolean
   currentUserId?: string | null
+  competitionVote?: CompetitionVoteContext
 }
 
 export default function PostCard({
@@ -30,6 +42,7 @@ export default function PostCard({
   variant = 'default',
   initialIsFollowing,
   currentUserId,
+  competitionVote,
 }: PostCardProps) {
   const supabase = useMemo(() => createClient(), [])
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -40,6 +53,20 @@ export default function PostCard({
   const [commentsCount, setCommentsCount] = useState(post.comments_count ?? 0)
   const [likesCount, setLikesCount] = useState(post.likes_count ?? 0)
   const [userLiked, setUserLiked] = useState(post.user_has_liked ?? false)
+
+  const [compVotesCount, setCompVotesCount] = useState(competitionVote?.votesCount ?? 0)
+  const [compUserVoted, setCompUserVoted] = useState(competitionVote?.userHasVoted ?? false)
+  const [compVoters, setCompVoters] = useState<Profile[]>(competitionVote?.voters ?? [])
+
+  useEffect(() => {
+    if (competitionVote) {
+      setCompVotesCount(competitionVote.votesCount)
+      setCompUserVoted(competitionVote.userHasVoted)
+      if (competitionVote.voters) {
+        setCompVoters(competitionVote.voters)
+      }
+    }
+  }, [competitionVote])
 
   const [isFollowing, setIsFollowing] = useState(initialIsFollowing ?? false)
   const [followLoading, setFollowLoading] = useState(false)
@@ -304,6 +331,23 @@ export default function PostCard({
         </span>
 
         <div className="flex items-center gap-3">
+          {competitionVote && (
+            <CompetitionVoteButton
+              competitionId={competitionVote.competitionId}
+              entryId={competitionVote.entryId}
+              authorId={post.author_id}
+              competitionStatus={competitionVote.status}
+              initialVotesCount={compVotesCount}
+              initialUserVoted={compUserVoted}
+              currentUserId={currentUid}
+              className={postTheme.actionClass}
+              onVoteChange={(voted, count, newVoters) => {
+                setCompUserVoted(voted)
+                setCompVotesCount(count)
+                if (newVoters) setCompVoters(newVoters)
+              }}
+            />
+          )}
           <LikeButton
             postId={post.id}
             initialCount={likesCount}
@@ -359,16 +403,28 @@ export default function PostCard({
         </div>
       </div>
 
-      {/* Liked by social proof */}
-      {likesCount > 0 && (
-        <div className="mt-2.5 pt-0.5">
-          <LikedByText
-            postId={post.id}
-            likesCount={likesCount}
-            initialFirstLiker={post.first_liker}
-            userHasLiked={userLiked}
-            currentUserId={currentUid}
-          />
+      {/* Social proof: Competition votes & Likes */}
+      {(competitionVote || likesCount > 0) && (
+        <div className="mt-2.5 pt-0.5 space-y-1.5">
+          {competitionVote && (
+            <CompetitionVotedByText
+              competitionId={competitionVote.competitionId}
+              entryId={competitionVote.entryId}
+              votesCount={compVotesCount}
+              initialVoters={compVoters}
+              userHasVoted={compUserVoted}
+              currentUserId={currentUid}
+            />
+          )}
+          {likesCount > 0 && (
+            <LikedByText
+              postId={post.id}
+              likesCount={likesCount}
+              initialFirstLiker={post.first_liker}
+              userHasLiked={userLiked}
+              currentUserId={currentUid}
+            />
+          )}
         </div>
       )}
 

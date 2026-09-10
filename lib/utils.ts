@@ -6,12 +6,37 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Format a date for display — relative for recent dates, absolute otherwise
+ * Format a date for display — relative for recent dates, absolute otherwise.
+ * Accurately handles both past and future timestamps.
  */
 export function formatDate(dateString: string): string {
   const date = new Date(dateString)
+  if (isNaN(date.getTime())) return ''
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
+
+  // Future date handling
+  if (diffMs < 0) {
+    const futureMs = -diffMs
+    const futureSeconds = Math.floor(futureMs / 1000)
+    const futureMinutes = Math.floor(futureSeconds / 60)
+    const futureHours = Math.floor(futureMinutes / 60)
+    const futureDays = Math.floor(futureHours / 24)
+
+    if (futureSeconds < 60) return 'in a few moments'
+    if (futureMinutes < 60) return `in ${futureMinutes}m`
+    if (futureHours < 24) return `in ${futureHours}h`
+    if (futureDays === 1) return 'in 1 day'
+    if (futureDays < 30) return `in ${futureDays} days`
+
+    return date.toLocaleDateString('en-IN', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    })
+  }
+
+  // Past date handling
   const diffSeconds = Math.floor(diffMs / 1000)
   const diffMinutes = Math.floor(diffSeconds / 60)
   const diffHours = Math.floor(diffMinutes / 60)
@@ -27,6 +52,48 @@ export function formatDate(dateString: string): string {
     month: 'short',
     day: 'numeric',
   })
+}
+
+/**
+ * Format competition deadlines and countdowns
+ * e.g. "closing in 2 days", "closing tomorrow", "closing in 4h", "closed 2h ago"
+ */
+export function formatDeadline(dateString: string): string {
+  const date = new Date(dateString)
+  if (isNaN(date.getTime())) return ''
+  const now = new Date()
+  const diffMs = date.getTime() - now.getTime()
+
+  if (diffMs > 0) {
+    // Future
+    const seconds = Math.floor(diffMs / 1000)
+    const minutes = Math.floor(seconds / 60)
+    const hours = Math.floor(minutes / 60)
+    const days = Math.floor(hours / 24)
+
+    if (seconds < 60) return 'closing shortly'
+    if (minutes < 60) return `closing in ${minutes}m`
+    if (hours < 24) return `closing in ${hours}h`
+    if (days === 1) return 'closing tomorrow'
+    return `closing in ${days} days`
+  } else {
+    // Past
+    const pastMs = -diffMs
+    const seconds = Math.floor(pastMs / 1000)
+    const minutes = Math.floor(seconds / 60)
+    const hours = Math.floor(minutes / 60)
+    const days = Math.floor(hours / 24)
+
+    if (seconds < 60) return 'closed just now'
+    if (minutes < 60) return `closed ${minutes}m ago`
+    if (hours < 24) return `closed ${hours}h ago`
+    if (days === 1) return 'closed yesterday'
+    if (days < 7) return `closed ${days}d ago`
+    return `closed on ${date.toLocaleDateString('en-IN', {
+      month: 'short',
+      day: 'numeric',
+    })}`
+  }
 }
 
 /**

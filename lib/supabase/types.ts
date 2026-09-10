@@ -95,6 +95,15 @@ export interface CompetitionEntry {
   posts?: PostWithAuthor
 }
 
+export interface CompetitionVote {
+  id: string
+  competition_id: string
+  entry_id: string
+  user_id: string
+  created_at: string
+  profiles?: Profile
+}
+
 export interface Conversation {
   id: string
   user_one_id: string
@@ -197,6 +206,11 @@ export type Database = {
       competition_entries: {
         Row: CompetitionEntry
         Insert: Omit<CompetitionEntry, 'id' | 'submitted_at'> & { id?: string; submitted_at?: string }
+        Update: never
+      }
+      competition_votes: {
+        Row: CompetitionVote
+        Insert: Omit<CompetitionVote, 'id' | 'created_at'> & { id?: string; created_at?: string }
         Update: never
       }
       conversations: {

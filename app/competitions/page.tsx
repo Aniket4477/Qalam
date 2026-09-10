@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import type { Competition } from '@/lib/supabase/types'
-import { formatDate, isUserAdmin } from '@/lib/utils'
+import { formatDate, formatDeadline, isUserAdmin } from '@/lib/utils'
 import { Trophy, Plus, Clock, ChevronRight, Shield } from 'lucide-react'
 
 export const metadata: Metadata = {
@@ -130,8 +130,8 @@ function CompetitionCard({ competition: c }: { competition: Competition }) {
         </h3>
         <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5 flex items-center gap-1">
           <Clock size={11} />
-          {c.status === 'open' ? `Submissions close ${formatDate(c.submissions_close_at)}`
-            : c.status === 'voting' ? `Voting closes ${formatDate(c.voting_closes_at)}`
+          {c.status === 'open' ? `Submissions ${formatDeadline(c.submissions_close_at)}`
+            : c.status === 'voting' ? `Voting ${formatDeadline(c.voting_closes_at)}`
             : c.status === 'upcoming' ? `Opens ${formatDate(c.starts_at)}`
             : `Ended ${formatDate(c.voting_closes_at)}`}
         </p>
