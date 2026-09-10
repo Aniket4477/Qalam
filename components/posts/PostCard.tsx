@@ -298,7 +298,7 @@ export default function PostCard({
       )}
 
       {/* Footer: date + engagement */}
-      <div className={cn('flex items-center justify-between mt-4 pt-3 border-t', postTheme.footerBorderClass)}>
+      <div className={cn('post-card-footer flex items-center justify-between mt-4 pt-3 border-t', postTheme.footerBorderClass)}>
         <span className={cn('text-xs font-medium', postTheme.mutedTextClass)}>
           {formatDate(post.created_at)}
         </span>
@@ -325,7 +325,7 @@ export default function PostCard({
             className={cn(
               'flex items-center gap-1 text-xs transition-colors py-0.5 px-1.5 rounded',
               showComments
-                ? 'text-[hsl(var(--primary))] font-medium'
+                ? 'comment-active text-[hsl(var(--primary))] font-medium'
                 : postTheme.actionClass
             )}
             aria-label="Toggle comments"
@@ -341,6 +341,7 @@ export default function PostCard({
             authorAvatar={post.profiles?.avatar_url ?? undefined}
             preview={truncateBody(post.body, 120)}
             variant="icon"
+            className={postTheme.actionClass}
           />
           <Link
             href={`/post/${post.id}`}

@@ -55,14 +55,14 @@ export default function SendPostButton({
           type="button"
           onClick={handleClick}
           className={cn(
-            'flex items-center gap-1 text-xs text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors py-0.5 px-1 rounded hover:bg-[hsl(var(--accent))]',
+            'flex items-center gap-1 text-xs text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors py-0.5 px-1 rounded hover:bg-[hsl(var(--accent))]',
             className
           )}
           aria-label="Send in chat"
           title="Send to friend or group"
         >
           <Send size={15} />
-          <span className="hidden sm:inline">Send</span>
+          <span>Send</span>
         </button>
       )}
 

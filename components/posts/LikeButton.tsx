@@ -121,7 +121,7 @@ export default function LikeButton({
           size={15}
           className={cn(
             'transition-all duration-150',
-            liked && 'fill-current text-[hsl(var(--primary))]',
+            liked && 'liked-heart fill-current text-[hsl(var(--primary))]',
             pop && 'animate-heart-pop'
           )}
         />

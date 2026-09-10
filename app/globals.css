@@ -511,6 +511,45 @@ body {
 }
 
 /* ============================================================
+   POST CARD FOOTER (Guaranteed identical color across every theme)
+   All items (timestamp "7m ago", like count "1", comment count "0",
+   Send button & icon, Read link & icon) strictly share the theme's
+   scoped --muted-foreground color token with 100% uniformity.
+   ============================================================ */
+.post-card-footer,
+.post-card-footer span,
+.post-card-footer time,
+.post-card-footer button,
+.post-card-footer a,
+.post-card-footer svg {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+/* When post is liked, fill the heart cleanly with theme currentColor */
+.post-card-footer svg.liked-heart {
+  color: hsl(var(--muted-foreground)) !important;
+  fill: currentColor !important;
+}
+
+/* When comments drawer is toggled open */
+.post-card-footer button.comment-active,
+.post-card-footer button.comment-active span,
+.post-card-footer button.comment-active svg {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Hover highlights for interactive buttons & links */
+.post-card-footer button:hover,
+.post-card-footer a:hover,
+.post-card-footer button:hover span,
+.post-card-footer a:hover span,
+.post-card-footer button:hover svg,
+.post-card-footer a:hover svg {
+  color: hsl(var(--foreground)) !important;
+}
+
+
+/* ============================================================
    COMPETITION BADGE
    ============================================================ */
 .badge-upcoming { background: hsl(220 50% 60% / 0.15); color: hsl(220 60% 40%); }
