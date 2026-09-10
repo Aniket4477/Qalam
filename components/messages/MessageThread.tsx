@@ -16,7 +16,7 @@ import {
   type ChatMediaData,
   cn,
 } from '@/lib/utils'
-import { ArrowLeft, ArrowRight, Palette } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Palette, ChevronDown } from 'lucide-react'
 import { getChatTheme, getThemeDisplayName, CHAT_THEMES, type ChatThemeId } from '@/lib/chatThemes'
 import type { ChatSticker } from '@/lib/chatStickers'
 import ChatThemeModal from './ChatThemeModal'
@@ -44,6 +44,49 @@ export default function MessageThread({
   const [themeModalOpen, setThemeModalOpen] = useState(false)
   const [activeLightboxMedia, setActiveLightboxMedia] = useState<ChatMediaData | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
+  const [showScrollBottom, setShowScrollBottom] = useState(false)
+  const [unreadBelowCount, setUnreadBelowCount] = useState(0)
+  const isScrolledUpRef = useRef(false)
+  const isInitialMount = useRef(true)
+
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior,
+      })
+    } else {
+      bottomRef.current?.scrollIntoView({ behavior })
+    }
+    setShowScrollBottom(false)
+    setUnreadBelowCount(0)
+    isScrolledUpRef.current = false
+  }
+
+  const handleScroll = () => {
+    const el = messagesContainerRef.current
+    if (!el) return
+    const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    const isUp = distanceToBottom > 120
+    setShowScrollBottom(isUp)
+    isScrolledUpRef.current = isUp
+    if (!isUp) {
+      setUnreadBelowCount(0)
+    }
+  }
+
+  useEffect(() => {
+    if (messages.length > 0 && isInitialMount.current) {
+      const timer = setTimeout(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+          isInitialMount.current = false
+        }
+      }, 50)
+      return () => clearTimeout(timer)
+    }
+  }, [messages.length])
   const supabase = createClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sb = supabase as any
@@ -97,6 +140,7 @@ export default function MessageThread({
           if (prev.find((m) => m.id === data.id)) return prev
           return [...prev, data as Message]
         })
+        setTimeout(() => scrollToBottom('smooth'), 50)
       }
     } catch (err) {
       console.error('Failed to post theme change message:', err)
@@ -147,6 +191,12 @@ export default function MessageThread({
             if (prev.find((m) => m.id === newMsg.id)) return prev
             return [...prev, newMsg]
           })
+
+          if (!isScrolledUpRef.current) {
+            setTimeout(() => scrollToBottom('smooth'), 60)
+          } else if (newMsg.sender_id !== currentUserId) {
+            setUnreadBelowCount((c) => c + 1)
+          }
 
           // If incoming message from other user, mark as read immediately
           if (newMsg.sender_id !== currentUserId) {
@@ -199,6 +249,7 @@ export default function MessageThread({
         if (prev.find((m) => m.id === data.id)) return prev
         return [...prev, data as Message]
       })
+      setTimeout(() => scrollToBottom('smooth'), 50)
     }
     setSending(false)
   }
@@ -219,6 +270,7 @@ export default function MessageThread({
         if (prev.find((m) => m.id === data.id)) return prev
         return [...prev, data as Message]
       })
+      setTimeout(() => scrollToBottom('smooth'), 50)
     }
     setSending(false)
   }
@@ -248,6 +300,7 @@ export default function MessageThread({
         if (prev.find((m) => m.id === data.id)) return prev
         return [...prev, data as Message]
       })
+      setTimeout(() => scrollToBottom('smooth'), 50)
     }
     setSending(false)
   }
@@ -289,10 +342,14 @@ export default function MessageThread({
         </button>
       </div>
 
-      <div
-        className="flex-1 overflow-y-auto px-4 py-4 space-y-3 transition-colors duration-300"
-        style={currentTheme.backgroundStyle}
-      >
+      {/* Messages Stream */}
+      <div className="flex-1 relative min-h-0">
+        <div
+          ref={messagesContainerRef}
+          onScroll={handleScroll}
+          className="h-full overflow-y-auto px-4 py-4 space-y-3 transition-colors duration-300"
+          style={currentTheme.backgroundStyle}
+        >
         {messages.length === 0 && (
           <div className="text-center text-sm text-[hsl(var(--muted-foreground))] py-8">
             Start a conversation with {otherUser.display_name}
@@ -506,7 +563,26 @@ export default function MessageThread({
             </div>
           )
         })}
-        <div ref={bottomRef} />
+          <div ref={bottomRef} />
+        </div>
+
+        {/* Floating Scroll To Bottom Button */}
+        {showScrollBottom && (
+          <button
+            type="button"
+            onClick={() => scrollToBottom('smooth')}
+            className="absolute right-4 sm:right-6 bottom-4 z-20 w-10 h-10 rounded-full bg-zinc-800/95 hover:bg-zinc-700 text-zinc-100 hover:text-white shadow-xl backdrop-blur-md border border-white/15 flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 animate-fade-in cursor-pointer"
+            aria-label="Scroll to latest messages"
+            title="Scroll to latest messages"
+          >
+            <ChevronDown size={20} className="stroke-[2.5]" />
+            {unreadBelowCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center shadow-xs">
+                {unreadBelowCount}
+              </span>
+            )}
+          </button>
+        )}
       </div>
 
       {/* Instagram-inspired Pill Chat Input Bar */}

@@ -16,7 +16,7 @@ import {
   type ChatMediaData,
   cn,
 } from '@/lib/utils'
-import { ArrowLeft, Users, Info, ArrowRight, Palette, AtSign } from 'lucide-react'
+import { ArrowLeft, Users, Info, ArrowRight, Palette, AtSign, ChevronDown } from 'lucide-react'
 import GroupInfoModal from './GroupInfoModal'
 import { getChatTheme, getThemeDisplayName, CHAT_THEMES, type ChatThemeId } from '@/lib/chatThemes'
 import type { ChatSticker } from '@/lib/chatStickers'
@@ -48,6 +48,49 @@ export default function GroupMessageThread({
   const [themeModalOpen, setThemeModalOpen] = useState(false)
   const [activeLightboxMedia, setActiveLightboxMedia] = useState<ChatMediaData | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
+  const [showScrollBottom, setShowScrollBottom] = useState(false)
+  const [unreadBelowCount, setUnreadBelowCount] = useState(0)
+  const isScrolledUpRef = useRef(false)
+  const isInitialMount = useRef(true)
+
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior,
+      })
+    } else {
+      bottomRef.current?.scrollIntoView({ behavior })
+    }
+    setShowScrollBottom(false)
+    setUnreadBelowCount(0)
+    isScrolledUpRef.current = false
+  }
+
+  const handleScroll = () => {
+    const el = messagesContainerRef.current
+    if (!el) return
+    const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    const isUp = distanceToBottom > 120
+    setShowScrollBottom(isUp)
+    isScrolledUpRef.current = isUp
+    if (!isUp) {
+      setUnreadBelowCount(0)
+    }
+  }
+
+  useEffect(() => {
+    if (messages.length > 0 && isInitialMount.current) {
+      const timer = setTimeout(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+          isInitialMount.current = false
+        }
+      }, 50)
+      return () => clearTimeout(timer)
+    }
+  }, [messages.length])
 
   // Load saved theme or sync from latest message in history
   useEffect(() => {
@@ -202,6 +245,12 @@ export default function GroupMessageThread({
             return [...prev, { ...newMsg, profiles: senderProfile }]
           })
 
+          if (!isScrolledUpRef.current) {
+            setTimeout(() => scrollToBottom('smooth'), 60)
+          } else if (newMsg.sender_id !== currentUserId) {
+            setUnreadBelowCount((c) => c + 1)
+          }
+
           // Mark incoming message as read since user is actively viewing
           if (newMsg.sender_id !== currentUserId) {
             sb.rpc('mark_group_messages_read', {
@@ -289,6 +338,7 @@ export default function GroupMessageThread({
           if (prev.find((m) => m.id === data.id)) return prev
           return [...prev, data as GroupMessage]
         })
+        setTimeout(() => scrollToBottom('smooth'), 50)
       }
 
       // Check for mentions and trigger notifications for mentioned members
@@ -362,6 +412,7 @@ export default function GroupMessageThread({
           if (prev.find((m) => m.id === data.id)) return prev
           return [...prev, data as GroupMessage]
         })
+        setTimeout(() => scrollToBottom('smooth'), 50)
       }
     } catch (err) {
       console.error('Failed to send group media:', err)
@@ -402,6 +453,7 @@ export default function GroupMessageThread({
           if (prev.find((m) => m.id === data.id)) return prev
           return [...prev, data as GroupMessage]
         })
+        setTimeout(() => scrollToBottom('smooth'), 50)
       }
     } catch (err) {
       console.error('Failed to send group sticker:', err)
@@ -486,10 +538,13 @@ export default function GroupMessageThread({
       </div>
 
       {/* Messages Stream */}
-      <div
-        className="flex-1 overflow-y-auto p-4 space-y-3 transition-colors duration-300"
-        style={currentTheme.backgroundStyle}
-      >
+      <div className="flex-1 relative min-h-0">
+        <div
+          ref={messagesContainerRef}
+          onScroll={handleScroll}
+          className="h-full overflow-y-auto p-4 space-y-3 transition-colors duration-300"
+          style={currentTheme.backgroundStyle}
+        >
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center text-[hsl(var(--muted-foreground))]">
             <div className="p-3 rounded-2xl bg-[hsl(var(--muted)/0.5)] mb-3">
@@ -781,7 +836,26 @@ export default function GroupMessageThread({
             )
           })
         )}
-        <div ref={bottomRef} />
+          <div ref={bottomRef} />
+        </div>
+
+        {/* Floating Scroll To Bottom Button */}
+        {showScrollBottom && (
+          <button
+            type="button"
+            onClick={() => scrollToBottom('smooth')}
+            className="absolute right-4 sm:right-6 bottom-4 z-20 w-10 h-10 rounded-full bg-zinc-800/95 hover:bg-zinc-700 text-zinc-100 hover:text-white shadow-xl backdrop-blur-md border border-white/15 flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 animate-fade-in cursor-pointer"
+            aria-label="Scroll to latest messages"
+            title="Scroll to latest messages"
+          >
+            <ChevronDown size={20} className="stroke-[2.5]" />
+            {unreadBelowCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center shadow-xs">
+                {unreadBelowCount}
+              </span>
+            )}
+          </button>
+        )}
       </div>
 
       {/* Pill Chat Input Bar with Mentions */}
