@@ -151,33 +151,47 @@ export default function SettingsPage() {
     let coverUrl = profile.cover_url
 
     if (avatarFile) {
-      const ext = avatarFile.name.split('.').pop()
-      const path = `${profile.id}/avatar.${ext}`
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(path, avatarFile, { upsert: true })
-      if (uploadError) {
-        setError('Failed to upload avatar: ' + uploadError.message)
+      try {
+        const formData = new FormData()
+        formData.append('file', avatarFile)
+        formData.append('bucket', 'avatars')
+        const res = await fetch('/api/profile/upload', {
+          method: 'POST',
+          body: formData,
+        })
+        const data = await res.json()
+        if (!res.ok || data.error) {
+          throw new Error(data.error || 'Failed to upload avatar')
+        }
+        avatarUrl = data.url
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Unknown upload error'
+        setError('Failed to upload avatar: ' + msg)
         setSaving(false)
         return
       }
-      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path)
-      avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`
     }
 
     if (coverFile) {
-      const ext = coverFile.name.split('.').pop()
-      const path = `${profile.id}/cover.${ext}`
-      const { error: uploadError } = await supabase.storage
-        .from('covers')
-        .upload(path, coverFile, { upsert: true })
-      if (uploadError) {
-        setError('Failed to upload cover: ' + uploadError.message)
+      try {
+        const formData = new FormData()
+        formData.append('file', coverFile)
+        formData.append('bucket', 'covers')
+        const res = await fetch('/api/profile/upload', {
+          method: 'POST',
+          body: formData,
+        })
+        const data = await res.json()
+        if (!res.ok || data.error) {
+          throw new Error(data.error || 'Failed to upload cover')
+        }
+        coverUrl = data.url
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Unknown upload error'
+        setError('Failed to upload cover: ' + msg)
         setSaving(false)
         return
       }
-      const { data: urlData } = supabase.storage.from('covers').getPublicUrl(path)
-      coverUrl = `${urlData.publicUrl}?t=${Date.now()}`
     }
 
     const updateData = {

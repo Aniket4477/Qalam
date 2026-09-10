@@ -91,15 +91,32 @@ export default function CreateGroupModal({
     try {
       let finalAvatarUrl: string | null = null
       if (avatarFile) {
-        const ext = avatarFile.name.split('.').pop()
-        const path = `groups/${crypto.randomUUID()}/avatar-${Date.now()}.${ext}`
-        const { error: uploadError } = await supabase.storage
-          .from('avatars')
-          .upload(path, avatarFile, { upsert: true })
+        try {
+          const formData = new FormData()
+          formData.append('file', avatarFile)
+          formData.append('bucket', 'avatars')
+          const ext = avatarFile.name.split('.').pop() || 'png'
+          formData.append('path', `groups/${crypto.randomUUID()}/avatar-${Date.now()}.${ext}`)
+          const res = await fetch('/api/profile/upload', {
+            method: 'POST',
+            body: formData,
+          })
+          const data = await res.json()
+          if (res.ok && data.url) {
+            finalAvatarUrl = data.url
+          }
+        } catch {
+          // Fallback to direct supabase upload
+          const ext = avatarFile.name.split('.').pop()
+          const path = `groups/${crypto.randomUUID()}/avatar-${Date.now()}.${ext}`
+          const { error: uploadError } = await supabase.storage
+            .from('avatars')
+            .upload(path, avatarFile, { upsert: true })
 
-        if (!uploadError) {
-          const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path)
-          finalAvatarUrl = `${urlData.publicUrl}?t=${Date.now()}`
+          if (!uploadError) {
+            const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path)
+            finalAvatarUrl = `${urlData.publicUrl}?t=${Date.now()}`
+          }
         }
       }
 
