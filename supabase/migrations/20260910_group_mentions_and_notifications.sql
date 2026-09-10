@@ -100,3 +100,9 @@ DROP TRIGGER IF EXISTS on_group_message_created ON public.group_messages;
 CREATE TRIGGER on_group_message_created
   AFTER INSERT ON public.group_messages
   FOR EACH ROW EXECUTE FUNCTION public.notify_on_group_message();
+
+-- 4. FIX: Public & Signed-In Users Can Execute SECURITY DEFINER Function
+-- Revoke direct RPC execution privileges on the trigger function
+REVOKE EXECUTE ON FUNCTION public.notify_on_group_message() FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.notify_on_group_message() FROM anon, authenticated;
+
