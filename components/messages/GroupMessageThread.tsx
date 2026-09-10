@@ -151,7 +151,8 @@ export default function GroupMessageThread({
     }
 
     currentMembers.forEach((m) => {
-      if (m.profiles?.username) {
+      // Exclude oneself so you only mention other circle members
+      if (m.user_id !== currentUserId && m.profiles?.username) {
         list.push({
           id: m.user_id,
           username: m.profiles.username,
@@ -163,7 +164,7 @@ export default function GroupMessageThread({
     })
 
     return list
-  }, [currentMembers])
+  }, [currentMembers, currentUserId])
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
