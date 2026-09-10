@@ -1,10 +1,10 @@
 -- ============================================================
--- FIX ALL SUPABASE SECURITY & LINTER WARNINGS
+-- FIX ALL SUPABASE SECURITY & LINTER WARNINGS (Error-Proof Version)
 -- ============================================================
 
 -- ------------------------------------------------------------
--- 1. FIX: Extension in Public (public.pg_trgm, public.uuid-ossp)
--- Move extensions to the 'extensions' schema
+-- 1. FIX: Extension in Public (pg_trgm, uuid-ossp)
+-- Move extensions to the 'extensions' schema safely
 -- ------------------------------------------------------------
 CREATE SCHEMA IF NOT EXISTS extensions;
 GRANT USAGE ON SCHEMA extensions TO public, anon, authenticated;
@@ -22,7 +22,7 @@ EXCEPTION
 END $$;
 
 -- ------------------------------------------------------------
--- 2. FIX: Function Search Path Mutable (public.update_updated_at)
+-- 2. FIX: Function Search Path Mutable (update_updated_at)
 -- Ensure search_path is immutable on all functions
 -- ------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.update_updated_at()
@@ -37,7 +37,7 @@ END;
 $$;
 
 -- ------------------------------------------------------------
--- 3. FIX: Public Bucket Allows Listing (storage.avatars, storage.chat_media, storage.covers)
+-- 3. FIX: Public Bucket Allows Listing (avatars, covers, chat_media)
 -- Public buckets serve files directly through the public URL endpoint
 -- without needing a broad SELECT policy on storage.objects.
 -- Removing the broad SELECT policy prevents unauthorized listing of all bucket contents.
@@ -49,33 +49,58 @@ DROP POLICY IF EXISTS "chat_media_public_select" ON storage.objects;
 -- ------------------------------------------------------------
 -- 4. FIX: Public Can Execute SECURITY DEFINER Function &
 --         Signed-In Users Can Execute SECURITY DEFINER Function
--- Revoke execution privileges from PUBLIC/anon/authenticated on trigger functions
+-- Revoke execution privileges safely (skips if function does not exist)
 -- ------------------------------------------------------------
 
--- handle_new_user() (triggered on auth.users insert, must not be directly callable)
-REVOKE EXECUTE ON FUNCTION public.handle_new_user() FROM PUBLIC, anon, authenticated;
-ALTER FUNCTION public.handle_new_user() SET search_path = public;
+-- handle_new_user()
+DO $$ BEGIN
+  REVOKE EXECUTE ON FUNCTION public.handle_new_user() FROM PUBLIC, anon, authenticated;
+  ALTER FUNCTION public.handle_new_user() SET search_path = public;
+EXCEPTION
+  WHEN undefined_function THEN null;
+END $$;
 
--- notify_on_like() (triggered on likes insert)
-REVOKE EXECUTE ON FUNCTION public.notify_on_like() FROM PUBLIC, anon, authenticated;
-ALTER FUNCTION public.notify_on_like() SET search_path = public;
+-- notify_on_like()
+DO $$ BEGIN
+  REVOKE EXECUTE ON FUNCTION public.notify_on_like() FROM PUBLIC, anon, authenticated;
+  ALTER FUNCTION public.notify_on_like() SET search_path = public;
+EXCEPTION
+  WHEN undefined_function THEN null;
+END $$;
 
--- notify_on_comment() (triggered on comments insert)
-REVOKE EXECUTE ON FUNCTION public.notify_on_comment() FROM PUBLIC, anon, authenticated;
-ALTER FUNCTION public.notify_on_comment() SET search_path = public;
+-- notify_on_comment()
+DO $$ BEGIN
+  REVOKE EXECUTE ON FUNCTION public.notify_on_comment() FROM PUBLIC, anon, authenticated;
+  ALTER FUNCTION public.notify_on_comment() SET search_path = public;
+EXCEPTION
+  WHEN undefined_function THEN null;
+END $$;
 
--- notify_on_message() (triggered on messages insert)
-REVOKE EXECUTE ON FUNCTION public.notify_on_message() FROM PUBLIC, anon, authenticated;
-ALTER FUNCTION public.notify_on_message() SET search_path = public;
+-- notify_on_message() (safe check)
+DO $$ BEGIN
+  REVOKE EXECUTE ON FUNCTION public.notify_on_message() FROM PUBLIC, anon, authenticated;
+  ALTER FUNCTION public.notify_on_message() SET search_path = public;
+EXCEPTION
+  WHEN undefined_function THEN null;
+END $$;
 
--- is_group_member() & is_group_admin() (RLS helpers; restrict from PUBLIC and anon)
-REVOKE EXECUTE ON FUNCTION public.is_group_member(UUID, UUID) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.is_group_member(UUID, UUID) TO authenticated;
-ALTER FUNCTION public.is_group_member(UUID, UUID) SET search_path = public;
+-- is_group_member()
+DO $$ BEGIN
+  REVOKE EXECUTE ON FUNCTION public.is_group_member(UUID, UUID) FROM PUBLIC, anon;
+  GRANT EXECUTE ON FUNCTION public.is_group_member(UUID, UUID) TO authenticated;
+  ALTER FUNCTION public.is_group_member(UUID, UUID) SET search_path = public;
+EXCEPTION
+  WHEN undefined_function THEN null;
+END $$;
 
-REVOKE EXECUTE ON FUNCTION public.is_group_admin(UUID, UUID) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.is_group_admin(UUID, UUID) TO authenticated;
-ALTER FUNCTION public.is_group_admin(UUID, UUID) SET search_path = public;
+-- is_group_admin()
+DO $$ BEGIN
+  REVOKE EXECUTE ON FUNCTION public.is_group_admin(UUID, UUID) FROM PUBLIC, anon;
+  GRANT EXECUTE ON FUNCTION public.is_group_admin(UUID, UUID) TO authenticated;
+  ALTER FUNCTION public.is_group_admin(UUID, UUID) SET search_path = public;
+EXCEPTION
+  WHEN undefined_function THEN null;
+END $$;
 
 -- rls_auto_enable() (if defined in project)
 DO $$ BEGIN
@@ -87,4 +112,6 @@ DO $$ BEGIN
     EXECUTE 'REVOKE EXECUTE ON FUNCTION public.rls_auto_enable() FROM PUBLIC, anon, authenticated;';
     EXECUTE 'ALTER FUNCTION public.rls_auto_enable() SET search_path = public;';
   END IF;
+EXCEPTION
+  WHEN OTHERS THEN null;
 END $$;
