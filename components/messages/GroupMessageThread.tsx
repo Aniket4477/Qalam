@@ -23,6 +23,7 @@ import type { ChatSticker } from '@/lib/chatStickers'
 import ChatThemeModal from './ChatThemeModal'
 import ChatInputBar, { type MentionSuggestion } from './ChatInputBar'
 import MessageBodyWithMentions from './MessageBodyWithMentions'
+import MessageStatusTicks, { type MessageDeliveryStatus } from './MessageStatusTicks'
 import MediaLightboxModal from './MediaLightboxModal'
 
 interface GroupMessageThreadProps {
@@ -171,6 +172,14 @@ export default function GroupMessageThread({
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // Mark group messages as read when opening circle chat
+  useEffect(() => {
+    sb.rpc('mark_group_messages_read', {
+      p_group_id: group.id,
+      p_user_id: currentUserId,
+    }).then(() => {}).catch(() => {})
+  }, [group.id, currentUserId, sb])
+
   // Real-time listener for group messages
   useEffect(() => {
     const channel = supabase
@@ -192,6 +201,14 @@ export default function GroupMessageThread({
             const senderProfile = memberMap.current[newMsg.sender_id]
             return [...prev, { ...newMsg, profiles: senderProfile }]
           })
+
+          // Mark incoming message as read since user is actively viewing
+          if (newMsg.sender_id !== currentUserId) {
+            sb.rpc('mark_group_messages_read', {
+              p_group_id: group.id,
+              p_user_id: currentUserId,
+            }).then(() => {}).catch(() => {})
+          }
 
           // If sender not in cache, fetch profile asynchronously
           if (!memberMap.current[newMsg.sender_id]) {
@@ -224,12 +241,31 @@ export default function GroupMessageThread({
           }
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'group_messages',
+          filter: `group_id=eq.${group.id}`,
+        },
+        (payload: { new: GroupMessage }) => {
+          const updated = payload.new
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === updated.id
+                ? { ...m, ...updated, profiles: m.profiles || memberMap.current[updated.sender_id] }
+                : m
+            )
+          )
+        }
+      )
       .subscribe()
 
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [group.id, supabase, sb])
+  }, [group.id, supabase, currentUserId, sb])
 
   const handleSendText = async (text: string) => {
     if (!text.trim() || sending) return
@@ -372,6 +408,14 @@ export default function GroupMessageThread({
     } finally {
       setSending(false)
     }
+  }
+
+  const getGroupTickStatus = (msg: GroupMessage): MessageDeliveryStatus => {
+    const readBy = (msg as any).read_by as string[] | undefined
+    if (Array.isArray(readBy) && readBy.some((id) => id !== currentUserId)) {
+      return 'read'
+    }
+    return 'delivered'
   }
 
   return (
@@ -572,14 +616,19 @@ export default function GroupMessageThread({
                                   </span>
                                 )}
                               </div>
-                              <p
-                                className={cn(
-                                  'text-[10px] mt-1 select-none',
-                                  isSelf ? currentTheme.timeOwnClass : currentTheme.timeOtherClass
+                              <div className="flex items-center justify-center gap-1 mt-1 select-none">
+                                <span
+                                  className={cn(
+                                    'text-[10px]',
+                                    isSelf ? currentTheme.timeOwnClass : currentTheme.timeOtherClass
+                                  )}
+                                >
+                                  {formatBubbleTime(msg.created_at)}
+                                </span>
+                                {isSelf && (
+                                  <MessageStatusTicks status={getGroupTickStatus(msg)} />
                                 )}
-                              >
-                                {formatBubbleTime(msg.created_at)}
-                              </p>
+                              </div>
                             </div>
                           )
                         }
@@ -709,14 +758,19 @@ export default function GroupMessageThread({
                                 knownUsers={knownUsers}
                               />
                             )}
-                            <p
-                              className={cn(
-                                'text-[10px] mt-1 text-right select-none',
-                                isSelf ? currentTheme.timeOwnClass : currentTheme.timeOtherClass
+                            <div className="flex items-center justify-end gap-1 mt-1 select-none">
+                              <span
+                                className={cn(
+                                  'text-[10px]',
+                                  isSelf ? currentTheme.timeOwnClass : currentTheme.timeOtherClass
+                                )}
+                              >
+                                {formatBubbleTime(msg.created_at)}
+                              </span>
+                              {isSelf && (
+                                <MessageStatusTicks status={getGroupTickStatus(msg)} />
                               )}
-                            >
-                              {formatBubbleTime(msg.created_at)}
-                            </p>
+                            </div>
                           </div>
                         )
                       })()}

@@ -22,6 +22,7 @@ import type { ChatSticker } from '@/lib/chatStickers'
 import ChatThemeModal from './ChatThemeModal'
 import ChatInputBar, { type MentionSuggestion } from './ChatInputBar'
 import MessageBodyWithMentions from './MessageBodyWithMentions'
+import MessageStatusTicks, { type MessageDeliveryStatus } from './MessageStatusTicks'
 import MediaLightboxModal from './MediaLightboxModal'
 
 interface MessageThreadProps {
@@ -124,6 +125,16 @@ export default function MessageThread({
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // Mark incoming unread messages as read when opening conversation
+  useEffect(() => {
+    sb.from('messages')
+      .update({ read_at: new Date().toISOString() })
+      .eq('conversation_id', conversationId)
+      .neq('sender_id', currentUserId)
+      .is('read_at', null)
+      .then(() => {})
+  }, [conversationId, currentUserId, sb])
+
   useEffect(() => {
     const channel = supabase
       .channel(`messages:${conversationId}`)
@@ -136,6 +147,14 @@ export default function MessageThread({
             if (prev.find((m) => m.id === newMsg.id)) return prev
             return [...prev, newMsg]
           })
+
+          // If incoming message from other user, mark as read immediately
+          if (newMsg.sender_id !== currentUserId) {
+            sb.from('messages')
+              .update({ read_at: new Date().toISOString() })
+              .eq('id', newMsg.id)
+              .then(() => {})
+          }
 
           // If this is a theme update, automatically switch the chat theme in realtime!
           if (newMsg.body.startsWith('[system]:theme|')) {
@@ -150,10 +169,20 @@ export default function MessageThread({
           }
         }
       )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
+        (payload: { new: Message }) => {
+          const updated = payload.new
+          setMessages((prev) =>
+            prev.map((m) => (m.id === updated.id ? { ...m, ...updated } : m))
+          )
+        }
+      )
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [conversationId, supabase])
+  }, [conversationId, supabase, currentUserId, sb])
 
   const handleSendText = async (text: string) => {
     if (!text.trim() || sending) return
@@ -335,14 +364,19 @@ export default function MessageThread({
                               </span>
                             )}
                           </div>
-                          <p
-                            className={cn(
-                              'text-[10px] mt-1 select-none',
-                              isOwn ? currentTheme.timeOwnClass : currentTheme.timeOtherClass
+                          <div className="flex items-center justify-center gap-1 mt-1 select-none">
+                            <span
+                              className={cn(
+                                'text-[10px]',
+                                isOwn ? currentTheme.timeOwnClass : currentTheme.timeOtherClass
+                              )}
+                            >
+                              {formatBubbleTime(msg.created_at)}
+                            </span>
+                            {isOwn && (
+                              <MessageStatusTicks status={msg.read_at ? 'read' : 'delivered'} />
                             )}
-                          >
-                            {formatBubbleTime(msg.created_at)}
-                          </p>
+                          </div>
                         </div>
                       )
                     }
@@ -451,14 +485,19 @@ export default function MessageThread({
                             knownUsers={knownUsers}
                           />
                         )}
-                        <p
-                          className={cn(
-                            'text-[10px] mt-1 text-right select-none',
-                            isOwn ? currentTheme.timeOwnClass : currentTheme.timeOtherClass
+                        <div className="flex items-center justify-end gap-1 mt-1 select-none">
+                          <span
+                            className={cn(
+                              'text-[10px]',
+                              isOwn ? currentTheme.timeOwnClass : currentTheme.timeOtherClass
+                            )}
+                          >
+                            {formatBubbleTime(msg.created_at)}
+                          </span>
+                          {isOwn && (
+                            <MessageStatusTicks status={msg.read_at ? 'read' : 'delivered'} />
                           )}
-                        >
-                          {formatBubbleTime(msg.created_at)}
-                        </p>
+                        </div>
                       </div>
                     )
                   })()}
