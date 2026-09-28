@@ -508,7 +508,7 @@ export function parseChatStickerMessage(body: string): ChatStickerData | null {
 
 /**
  * Check if a user or profile has administration privileges.
- * Recognizes is_admin = true or founder username 'aniketcpt'.
+ * Verifies the database is_admin role or configurable admin username.
  */
 export function isUserAdmin(
   profileOrUser:
@@ -523,7 +523,15 @@ export function isUserAdmin(
   if (!profileOrUser) return false
   if (profileOrUser.is_admin === true) return true
   const uname = profileOrUser.username?.trim().toLowerCase()
-  if (uname === 'aniketcpt') return true
+  if (!uname) return false
+  const configuredAdmin = (
+    typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_ADMIN_USERNAME
+      ? process.env.NEXT_PUBLIC_ADMIN_USERNAME
+      : 'aniketcpt'
+  )
+    .trim()
+    .toLowerCase()
+  if (configuredAdmin && uname === configuredAdmin) return true
   return false
 }
 
