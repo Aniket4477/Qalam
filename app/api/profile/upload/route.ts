@@ -1,8 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import {
+  validateFile,
+  generateUploadPath,
+  validateUploadPath,
+  type BucketName,
+} from '@/lib/fileValidation'
+import { rateLimit } from '@/lib/rateLimit'
+import { getClientIdentifier } from '@/lib/getClientIdentifier'
 
 export async function POST(req: NextRequest) {
   try {
+    // Rate limiting
+    const identifier = getClientIdentifier(req)
+    const rateLimitResult = await rateLimit(identifier, 'upload')
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        {
+          error: 'Too many upload requests. Please try again later.',
+          retryAfter: rateLimitResult.retryAfter,
+        },
+        { status: 429 }
+      )
+    }
+
     const supabase = await createClient()
     const {
       data: { user },
@@ -22,21 +43,38 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
     }
 
-    if (bucket !== 'avatars' && bucket !== 'covers') {
+    // Validate bucket
+    if (bucket !== 'avatars' && bucket !== 'covers' && bucket !== 'chat_media') {
       return NextResponse.json({ error: 'Invalid bucket' }, { status: 400 })
     }
 
+    // Validate file (size, type, magic numbers)
+    const validation = await validateFile(file, bucket as BucketName)
+    if (!validation.valid) {
+      return NextResponse.json({ error: validation.error }, { status: 400 })
+    }
+
     // Determine upload destination path
-    let uploadPath = customPath
-    if (!uploadPath) {
-      const ext = file.name.split('.').pop() || 'png'
-      const prefix = bucket === 'covers' ? 'cover' : 'avatar'
-      uploadPath = `${user.id}/${prefix}.${ext}`
-    } else {
-      // Security: user can only upload to their own directory or groups directory
-      if (!uploadPath.startsWith(`${user.id}/`) && !uploadPath.startsWith('groups/')) {
-        return NextResponse.json({ error: 'Forbidden upload path' }, { status: 403 })
+    let uploadPath: string
+    if (customPath) {
+      // Validate custom path for security
+      const pathValidation = validateUploadPath(customPath, user.id)
+      if (!pathValidation.valid) {
+        return NextResponse.json({ error: pathValidation.error }, { status: 403 })
       }
+      uploadPath = customPath
+    } else {
+      // Generate safe upload path
+      const prefix = bucket === 'covers' ? 'cover' : 'avatar'
+      const pathResult = generateUploadPath(
+        user.id,
+        validation.sanitizedFilename || file.name,
+        prefix
+      )
+      if (pathResult.error) {
+        return NextResponse.json({ error: pathResult.error }, { status: 400 })
+      }
+      uploadPath = pathResult.path
     }
 
     const adminSupabase = await createAdminClient()
@@ -46,12 +84,13 @@ export async function POST(req: NextRequest) {
     const { error: uploadError } = await adminSupabase.storage
       .from(bucket)
       .upload(uploadPath, buffer, {
-        contentType: file.type || 'image/png',
+        contentType: validation.detectedType || 'image/png',
         upsert: true,
       })
 
     if (uploadError) {
-      return NextResponse.json({ error: uploadError.message }, { status: 500 })
+      console.error('Upload error:', { bucket, path: uploadPath, error: uploadError.message })
+      return NextResponse.json({ error: 'Upload failed' }, { status: 500 })
     }
 
     const { data: urlData } = adminSupabase.storage.from(bucket).getPublicUrl(uploadPath)
@@ -59,7 +98,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ url: publicUrl, path: uploadPath })
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Internal server error'
-    return NextResponse.json({ error: message }, { status: 500 })
+    console.error('Profile upload error:', err instanceof Error ? err.message : 'Unknown error')
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

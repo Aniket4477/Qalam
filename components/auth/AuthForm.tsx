@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { Eye, EyeOff, Loader2 } from 'lucide-react'
+import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { validatePasswordStrength, getPasswordStrength } from '@/lib/passwordValidation'
 
 type Mode = 'login' | 'signup'
 
@@ -26,11 +27,35 @@ export default function AuthForm({ mode }: AuthFormProps) {
   const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [passwordErrors, setPasswordErrors] = useState<string[]>([])
+
+  const isLogin = mode === 'login'
+
+  // Validate password on change for signup
+  const handlePasswordChange = (newPassword: string) => {
+    setPassword(newPassword)
+    if (!isLogin && newPassword.length > 0) {
+      const validation = validatePasswordStrength(newPassword)
+      setPasswordErrors(validation.errors)
+    } else {
+      setPasswordErrors([])
+    }
+  }
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
+
+    // Validate password strength for signup
+    if (!isLogin) {
+      const validation = validatePasswordStrength(password)
+      if (!validation.valid) {
+        setError(validation.errors[0])
+        setLoading(false)
+        return
+      }
+    }
 
     if (mode === 'signup') {
       const { data, error: signUpError } = await supabase.auth.signUp({
@@ -95,7 +120,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
     }
   }
 
-  const isLogin = mode === 'login'
+  const passwordStrength = !isLogin && password.length > 0 ? getPasswordStrength(password) : null
 
   return (
     <div className="w-full max-w-sm mx-auto">
@@ -181,11 +206,11 @@ export default function AuthForm({ mode }: AuthFormProps) {
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => handlePasswordChange(e.target.value)}
                   required
-                  minLength={6}
+                  minLength={isLogin ? 6 : 10}
                   suppressHydrationWarning
-                  placeholder={isLogin ? '••••••••' : 'At least 6 characters'}
+                  placeholder={isLogin ? '••••••••' : 'At least 10 characters with complexity'}
                   className="w-full px-3 py-2.5 pr-10 bg-[hsl(var(--input)/0.5)] border border-[hsl(var(--border))] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))] placeholder:text-[hsl(var(--muted-foreground))] transition-colors"
                 />
                 <button
@@ -198,6 +223,55 @@ export default function AuthForm({ mode }: AuthFormProps) {
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
+
+              {/* Password strength indicator for signup */}
+              {!isLogin && password.length > 0 && (
+                <div className="mt-2 space-y-2">
+                  {/* Strength bar */}
+                  {passwordStrength && (
+                    <div className="space-y-1">
+                      <div className="flex gap-1">
+                        {[0, 1, 2, 3, 4].map((level) => (
+                          <div
+                            key={level}
+                            className={`h-1 flex-1 rounded-full transition-colors ${
+                              level <= passwordStrength.score
+                                ? passwordStrength.score <= 1
+                                  ? 'bg-red-500'
+                                  : passwordStrength.score === 2
+                                  ? 'bg-orange-500'
+                                  : passwordStrength.score === 3
+                                  ? 'bg-yellow-500'
+                                  : 'bg-green-500'
+                                : 'bg-[hsl(var(--border))]'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                        Strength: <span className="font-medium">{passwordStrength.label}</span>
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Password requirements */}
+                  {passwordErrors.length > 0 ? (
+                    <div className="space-y-1">
+                      {passwordErrors.map((err, i) => (
+                        <div key={i} className="flex items-start gap-1.5 text-xs text-red-600 dark:text-red-400">
+                          <AlertCircle size={14} className="mt-0.5 flex-shrink-0" />
+                          <span>{err}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-1.5 text-xs text-green-600 dark:text-green-400">
+                      <CheckCircle2 size={14} className="mt-0.5 flex-shrink-0" />
+                      <span>Password meets all requirements</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {error && (
@@ -216,7 +290,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (!isLogin && passwordErrors.length > 0)}
               suppressHydrationWarning
               className="w-full py-2.5 bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-lg font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >

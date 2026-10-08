@@ -1,8 +1,23 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { rateLimit } from '@/lib/rateLimit'
+import { getClientIdentifier } from '@/lib/getClientIdentifier'
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    // Rate limiting
+    const identifier = getClientIdentifier(request)
+    const rateLimitResult = await rateLimit(identifier, 'vote')
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        {
+          error: 'Too many vote requests. Please try again later.',
+          retryAfter: rateLimitResult.retryAfter,
+        },
+        { status: 429 }
+      )
+    }
+
     const supabase = await createClient()
     const {
       data: { user },
@@ -156,14 +171,26 @@ export async function POST(request: Request) {
       voters,
     })
   } catch (err: unknown) {
-    console.error('Error voting for competition entry:', err)
-    const message = err instanceof Error ? err.message : 'Failed to process vote'
-    return NextResponse.json({ error: message }, { status: 500 })
+    console.error('Vote error:', err instanceof Error ? err.message : 'Unknown error')
+    return NextResponse.json({ error: 'Failed to process vote' }, { status: 500 })
   }
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
+    // Rate limiting for GET requests too
+    const identifier = getClientIdentifier(request)
+    const rateLimitResult = await rateLimit(identifier, 'api')
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        {
+          error: 'Too many requests. Please try again later.',
+          retryAfter: rateLimitResult.retryAfter,
+        },
+        { status: 429 }
+      )
+    }
+
     const { searchParams } = new URL(request.url)
     const entryId = searchParams.get('entryId')
 
@@ -214,7 +241,7 @@ export async function GET(request: Request) {
       voters,
     })
   } catch (err: unknown) {
-    console.error('Error fetching competition entry votes:', err)
+    console.error('Get votes error:', err instanceof Error ? err.message : 'Unknown error')
     return NextResponse.json({ error: 'Failed to fetch votes' }, { status: 500 })
   }
 }
