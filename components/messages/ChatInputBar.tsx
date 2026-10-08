@@ -218,10 +218,7 @@ export default function ChatInputBar({
   const isMentionPopupVisible = mentionQuery !== null && filteredMentions.length > 0
 
   return (
-    <div
-      className="relative p-3 sm:px-4 sm:py-3 border-t border-white/10 backdrop-blur-xl"
-      style={{ background: 'rgba(0,0,0,0.25)' }}
-    >
+    <div className="relative p-3 sm:px-4 sm:py-3 bg-transparent">
       {/* Hidden File Input for photos and videos */}
       <input
         ref={fileInputRef}
