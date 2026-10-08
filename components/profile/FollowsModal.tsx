@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/lib/supabase/types'
@@ -66,7 +67,7 @@ export default function FollowsModal({
     }
   }, [activeTab, userId, sb])
 
-  return (
+  const modalContent = (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in"
       onClick={onClose}
@@ -154,4 +155,6 @@ export default function FollowsModal({
       </div>
     </div>
   )
+
+  return createPortal(modalContent, document.body)
 }
