@@ -471,7 +471,7 @@ export default function GroupMessageThread({
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-3.5rem)]">
+    <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden" style={currentTheme.backgroundStyle}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[hsl(var(--border))] bg-[hsl(var(--background)/0.9)] backdrop-blur-md z-10">
         <div className="flex items-center gap-3 min-w-0">
@@ -543,7 +543,6 @@ export default function GroupMessageThread({
           ref={messagesContainerRef}
           onScroll={handleScroll}
           className="h-full overflow-y-auto p-4 space-y-3 transition-colors duration-300"
-          style={currentTheme.backgroundStyle}
         >
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center text-[hsl(var(--muted-foreground))]">

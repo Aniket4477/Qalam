@@ -306,7 +306,7 @@ export default function MessageThread({
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-3.5rem)]">
+    <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden" style={currentTheme.backgroundStyle}>
       <div className="flex items-center justify-between px-4 py-3 border-b border-[hsl(var(--border))] bg-[hsl(var(--background)/0.9)] backdrop-blur-md">
         <div className="flex items-center gap-3 min-w-0">
           <Link href="/messages" className="p-1.5 rounded-md text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--foreground))] transition-colors shrink-0">
@@ -348,7 +348,6 @@ export default function MessageThread({
           ref={messagesContainerRef}
           onScroll={handleScroll}
           className="h-full overflow-y-auto px-4 py-4 space-y-3 transition-colors duration-300"
-          style={currentTheme.backgroundStyle}
         >
         {messages.length === 0 && (
           <div className="text-center text-sm text-[hsl(var(--muted-foreground))] py-8">
